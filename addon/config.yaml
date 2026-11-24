@@ -1,0 +1,15 @@
+name: Helper PV Curtail
+description: Adjust PV generation limits when grid export prices are low.
+version: "0.1.0"
+slug: helper-pv-curtail
+url: https://github.com/elias-ems/helper-pv-curtail
+arch:
+  - aarch64
+  - amd64
+init: true
+ingress: true
+ingress_port: 3000
+homeassistant_api: true
+panel_icon: mdi:solar-power
+startup: application
+boot: auto
