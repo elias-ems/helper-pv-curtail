@@ -62,7 +62,7 @@ export default function AppHeader() {
   return (
     <header className="app-header" style={headerStyle}>
       <span className="app-header-title" style={titleStyle}>
-        Helper PV Curtail
+        Elias EMS PV Curtail Helper
       </span>
       <nav style={navStyle}>
         <NavLink to="/" end style={linkStyle}>
