@@ -80,7 +80,25 @@ export function action(args: Route.ActionArgs) {
 }
 
 async function settingsAction({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
+  let formData: FormData;
+  if (
+    request.headers.get("Content-Type")?.split(";")[0].trim() ===
+    "application/json"
+  ) {
+    const fields: unknown = await request.json().catch(() => null);
+    if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+      throw data("Expected a JSON object of settings fields.", { status: 400 });
+    }
+    formData = new FormData();
+    for (const [name, value] of Object.entries(fields)) {
+      if (typeof value !== "string") {
+        throw data("Settings fields must be strings.", { status: 400 });
+      }
+      formData.set(name, value);
+    }
+  } else {
+    formData = await request.formData();
+  }
   const intent = String(formData.get("intent") ?? "");
 
   const failed = (result: SettingsActionData) => data(result, { status: 400 });

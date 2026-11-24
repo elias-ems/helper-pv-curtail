@@ -22,17 +22,23 @@ it("configures curtailment through ingress, publishes a limit, and releases on d
       expect((await fetch(new URL(asset ?? "", stack.baseUrl))).ok).toBe(true);
 
       const settings = new URL("settings", stack.baseUrl);
-      async function save(fields: Record<string, string>) {
+      async function save(fields: Record<string, string>, json = false) {
         const response = await fetch(settings, {
           method: "POST",
-          headers: { Origin: stack.origin },
-          body: new URLSearchParams(fields),
+          headers: {
+            Origin: stack.origin,
+            ...(json ? { "Content-Type": "application/json" } : {}),
+          },
+          body: json ? JSON.stringify(fields) : new URLSearchParams(fields),
         });
         expect(response.status).toBe(200);
         return response.text();
       }
 
-      await save({ intent: "grid-save", powerEntityId: "sensor.grid_power" });
+      await save(
+        { intent: "grid-save", powerEntityId: "sensor.grid_power" },
+        true,
+      );
       await save({
         intent: "pv-add",
         title: "South roof",
