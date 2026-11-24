@@ -1,13 +1,13 @@
-# Elias EMS PV Curtail Helper
+# elias-ems pv curtail helper
 
 A standalone Home Assistant app for price-based solar curtailment.
 
-Elias EMS PV Curtail Helper uses the grid meter, PV power readings, and your export tariff to decide how much your arrays should generate. It keeps the curtailment strategies, modulating and stepped inverter modes, optional battery and EV inputs, and decision logs from [elias-ems](https://github.com/elias-ems/elias-ems).
+elias-ems pv curtail helper uses the grid meter, PV power readings, and your export tariff to decide how much your arrays should generate. It keeps the curtailment strategies, modulating and stepped inverter modes, optional battery and EV inputs, and decision logs from [elias-ems](https://github.com/elias-ems/elias-ems).
 
 ## Install
 
 1. In Home Assistant, add `https://github.com/elias-ems/helper-pv-curtail` to the app store repositories.
-2. Install **Elias EMS PV Curtail Helper**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
+2. Install **elias-ems pv curtail helper**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
 3. In **Settings**, choose a signed grid power sensor in watts (positive for import), then add each PV array's current power sensor. For arrays you want to limit, enable curtailment on the array and enter its inverter's rated AC output in watts.
 4. Choose a supported Home Assistant price forecast entity with `raw_today` or `data` attributes. Check the production formula against your export tariff. A threshold of zero curtails when exporting costs money.
 5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Status** to check decisions and event delivery.
