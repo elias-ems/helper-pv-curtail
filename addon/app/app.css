@@ -23,16 +23,17 @@
   --brand-soft: #e4efff;
   --brand-deep-blue: #235991;
 
-  --color-bg: light-dark(var(--brand-paper), var(--brand-ink));
-  --color-surface: light-dark(#ffffff, #193b61);
-  --color-form: light-dark(var(--brand-soft), #193b61);
-  --color-surface-raised: light-dark(var(--brand-soft), #24496f);
-  --color-surface-active: light-dark(#d6e6fb, #2c557e);
+  --color-bg: light-dark(var(--brand-paper), #0d192b);
+  --color-surface: light-dark(#ffffff, #17283f);
+  --color-form: light-dark(var(--brand-soft), #1c2f48);
+  --color-surface-raised: light-dark(var(--brand-soft), #263f5e);
+  --color-surface-active: light-dark(#d6e6fb, #345273);
   --color-text: light-dark(var(--brand-ink), var(--brand-paper));
-  --color-text-muted: light-dark(#49617e, #bbd0e9);
-  --color-heading: light-dark(var(--brand-deep-blue), var(--brand-paper));
-  --color-border: light-dark(#ccdcef, #385b7f);
+  --color-text-muted: light-dark(#49617e, #b9cbe1);
+  --color-heading: light-dark(var(--brand-deep-blue), #c9dfff);
+  --color-border: light-dark(#ccdcef, #395574);
   --color-border-strong: light-dark(#7189a6, #829ebc);
+  --color-field-bg: light-dark(var(--color-surface), #101e32);
   --color-danger: light-dark(#ae1829, #ffabb3);
   --color-warning: light-dark(#775500, #ffd682);
   --color-success: light-dark(#0f6938, #76e5a8);
@@ -167,12 +168,14 @@ code {
 /* Inputs and buttons inherit the page colours instead of the platform's
    light-mode defaults, which `color-scheme` alone only partly adapts. */
 input,
+select,
 button {
   color: var(--color-text);
 }
 
-input {
-  background: var(--color-surface);
+input,
+select {
+  background: var(--color-field-bg);
 }
 
 ::placeholder {
