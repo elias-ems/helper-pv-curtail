@@ -1,0 +1,285 @@
+/*
+ * Theme tokens.
+ *
+ * Home Assistant renders the add-on in an ingress iframe and its CSS custom
+ * properties do not cross that boundary, so we cannot read HA's theme
+ * variables. What does cross is `color-scheme`: the browser propagates the
+ * embedding document's used color-scheme into the iframe, which is what makes
+ * `light-dark()` below follow HA's light/dark setting rather than only the OS
+ * preference.
+ *
+ * `light-dark()` is driven by the computed `color-scheme` rather than by the
+ * `prefers-color-scheme` media query, so declaring `color-scheme: light dark`
+ * once here is the single switch for the whole palette — forcing a theme later
+ * only means overriding that one property.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Page canvas, the panels that sit on it (inputs, the suggestions popover),
+     the tint that marks a chip apart from the page, and the darker tint of a
+     control that is currently pressed. */
+  --color-bg: light-dark(#ffffff, #16202a);
+  --color-surface: light-dark(#ffffff, #1f2933);
+  --color-surface-raised: light-dark(#f5f7fa, #323f4b);
+  --color-surface-active: light-dark(#e4e7eb, #3e4c59);
+
+  /* #616e7c rather than the lighter grey it replaces: the old muted colour
+     cleared 3.6:1 on white, which is under the 4.5:1 needed for body text. */
+  --color-text: light-dark(#1f2933, #f5f7fa);
+  --color-text-muted: light-dark(#616e7c, #9aa5b1);
+
+  --color-border: light-dark(#e4e7eb, #323f4b);
+  --color-border-strong: light-dark(#cbd2d9, #52606d);
+
+  --color-danger: light-dark(#cf1124, #ef4e4e);
+
+  /* Warnings in the diagnostics log — a control tick that decided something,
+     but with a reading it could not trust. Both ends clear 4.5:1 against the
+     surface they are drawn on: 5.2:1 on white, 8.9:1 on the dark canvas. */
+  --color-warning: light-dark(#8d6708, #f0b429);
+
+  /* A working live connection. Used for a dot and for the word beside it, so it
+     is picked to clear 4.5:1 as text rather than the 3:1 a graphic would need:
+     4.9:1 on white, 9.8:1 on the dark canvas. */
+  --color-success: light-dark(#0f7b3f, #3ddc84);
+
+  --color-focus: light-dark(#2186eb, #5eaaf5);
+
+  /* A link that is a link rather than body text. The focus blue is one step too
+     light for this: it clears the 3:1 a focus ring needs and only 3.7:1 against
+     white, where text wants 4.5:1. The dashboard's links are 12px and sit inside
+     cards, so they are underlined as well as coloured. */
+  --color-link: light-dark(#0967d2, #5eaaf5);
+
+  /* What each part of the house is drawn in on the dashboard. Same ramps as
+     everything above, picked so each clears 4.5:1 as a number on the surface it
+     sits on and 4.5:1 again on its own tint, in both themes.
+
+     `--color-import` is red-on-the-meter, not danger: importing is normal, and
+     the colour is here to make the sign of a signed number readable at a
+     glance rather than to say something is wrong. */
+  --color-pv: light-dark(#a3450f, #f0b429);
+  --color-battery: light-dark(#0b6e99, #38bec9);
+  --color-import: light-dark(#ab091e, #fa8a8a);
+  --color-export: light-dark(#0f7b3f, #3ddc84);
+
+  /* Chart marks are graphics, so 3:1 is the bar to clear — but the blue-grey
+     that reads as "quiet" only manages 2.9:1 on white, hence the darker light
+     value. Active ("now") bars take a contextual tint rather than an alarming
+     universal red: darker in light theme, brighter in dark theme. */
+  --color-chart-bar: light-dark(#6b8299, #9aa5b1);
+  --color-chart-bar-now: light-dark(#334155, #e2e8f0);
+  --color-import-now: light-dark(#7f0710, #ffd1d1);
+  --color-chart-now: var(--color-chart-bar-now);
+
+  /* The tints a pill or a callout sits on. Kept faint enough that the colour
+     above still clears 4.5:1 when drawn on them. */
+  --color-pv-soft: light-dark(
+    rgba(163, 69, 15, 0.12),
+    rgba(240, 180, 41, 0.14)
+  );
+  --color-battery-soft: light-dark(
+    rgba(11, 110, 153, 0.12),
+    rgba(56, 190, 201, 0.14)
+  );
+  --color-import-soft: light-dark(
+    rgba(171, 9, 30, 0.12),
+    rgba(250, 138, 138, 0.12)
+  );
+  --color-export-soft: light-dark(
+    rgba(15, 123, 63, 0.12),
+    rgba(61, 220, 132, 0.14)
+  );
+  --color-warning-soft: light-dark(
+    rgba(141, 103, 8, 0.08),
+    rgba(240, 180, 41, 0.13)
+  );
+
+  /* The add-on's own top bar — the one surface here that isn't the page canvas.
+     Home Assistant's theme variables don't cross the ingress iframe, so this
+     can't track HA's real primary colour; it is HA's default blue darkened
+     until white text on it clears 4.5:1 (4.8:1 light, 7.4:1 dark). Stock
+     #03a9f4 manages only 2.2:1, which is why we don't simply reuse it. */
+  --color-header-bg: light-dark(#0277bd, #01579b);
+  --color-header-text: #ffffff;
+
+  --shadow-popover: light-dark(
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.5)
+  );
+
+  /* Dark needs no lift: the raised surface already separates a card from the
+     canvas, and a shadow on a dark ground only muddies the edge. */
+  --shadow-card: light-dark(0 1px 2px rgba(16, 24, 40, 0.05), none);
+
+  /* Every reading on the dashboard is set in this, so that a column of numbers
+     lines up and a value doesn't jitter sideways as it changes. Locally
+     installed faces only — an add-on has to work in a house with no internet,
+     which rules out fetching a webfont at runtime. */
+  --font-mono:
+    ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SF Mono", Menlo, monospace;
+}
+
+body {
+  margin: 0;
+  /* `sans-serif` resolves to something different on every platform and to
+     Arial on most. `system-ui` follows the OS the way Home Assistant's own UI
+     does, which is what the add-on is embedded in. */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: inherit;
+}
+
+/*
+ * A heading that only a screen reader gets. The dashboard's own name is in the
+ * top bar directly above it, so printing "Home" again would be the same word
+ * twice — but a page with no h1 is a page a screen reader cannot summarise.
+ *
+ * The clip-path/1px recipe rather than `display: none` or `visibility: hidden`,
+ * both of which take the element out of the accessibility tree along with the
+ * layout, which is the opposite of the point.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Nearly every `code` here holds an entity id, and an entity id is one
+ * unbroken word — `sensor.technical_room_indevolt_cms_sf2000_battery_consumed`
+ * has no space or hyphen for the browser to break at, so a phone-width column
+ * could not shrink below it and the whole settings page scrolled sideways.
+ * `anywhere` also lets the id count as zero-width for min-content sizing,
+ * which is what actually lets the column narrow.
+ */
+code {
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+/* Inputs and buttons inherit the page colours instead of the platform's
+   light-mode defaults, which `color-scheme` alone only partly adapts. */
+input,
+button {
+  color: var(--color-text);
+}
+
+input {
+  background: var(--color-surface);
+}
+
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Top bar
+ * ---------------------------------------------------------------------------
+ *
+ * The two things an inline style cannot express, for the bar in
+ * [AppHeader.tsx](components/AppHeader.tsx): a pseudo-class and a media query.
+ * Everything else about the bar — its colours, its height, its stickiness —
+ * stays inline in that component, as the rest of the app does.
+ *
+ * The focus blue all but vanishes against the header's own blue (1.3:1), so the
+ * bar focuses in white instead — the colour it is already guaranteed to
+ * contrast with.
+ */
+.app-header :focus-visible {
+  outline-color: var(--color-header-text);
+}
+
+/*
+ * The bar's spacing, base value and phone value together.
+ *
+ * Both halves are here rather than the base being inline and the override
+ * fighting it from a media query: an inline style beats any selector, so the
+ * narrow rules simply lost. That is not a hypothetical — this block used to
+ * contain only the narrow half, and four of its five declarations did nothing
+ * at all, three because AppHeader set the same property inline and the fourth
+ * because it named a class no element carried. The same rule as the dashboard
+ * layout below: if a property changes with the viewport, it lives here whole.
+ *
+ * 480px is where the slack runs out rather than a device width. At full size
+ * the name and page tabs need more than a narrow phone has; tightened, they
+ * still keep a useful touch target without pushing the bar wider than 320px.
+ */
+.app-header {
+  padding: 0 1rem;
+  gap: 0.5rem;
+}
+
+.app-header-title {
+  font-size: 1.25rem;
+}
+
+.app-header nav > a {
+  padding-inline: 0.875rem;
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding-inline: 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .app-header-title,
+  .app-header nav > a {
+    font-size: 0.875rem;
+  }
+
+  .app-header nav > a {
+    padding-inline: 0.5rem;
+  }
+}
+
+.page {
+  padding: 1.125rem 1.5rem 1.75rem;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 0.875rem 0.875rem 1.5rem;
+  }
+}
+
+.settings-grid {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 992px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1500px) {
+  .settings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
