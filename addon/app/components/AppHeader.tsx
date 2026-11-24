@@ -1,22 +1,7 @@
-/**
- * The add-on's top bar: its name, then its pages.
- *
- * This is the bar ESPHome and the Matter server appear to add to Home
- * Assistant's chrome. They don't — HA renders an ingress panel as a bare
- * cross-origin iframe with no toolbar of its own above it, and gives the add-on
- * no way to put anything in HA's. What those add-ons do is render a Material
- * top app bar as the first thing inside their own iframe, which is what this
- * is, styled to sit continuously with the HA page it is embedded in.
- *
- * Its spacing — the bar's padding and gap, the title's size, each tab's padding
- * and size — is the one part not styled here. Those five change at 480px, where
- * the name plus the page tabs run out of slack, and an inline style has nowhere
- * to put a media query; they live in the `Top bar` block of app.css the same way
- * the dashboard's breakpoints do. Everything that does *not* move with the
- * viewport stays below.
- */
 import type { CSSProperties } from "react";
 import { NavLink } from "react-router";
+import brandLogo from "../assets/elias-ems-dark.svg?inline";
+import brandIcon from "../assets/elias-ems-icon.svg?inline";
 
 const headerStyle: CSSProperties = {
   display: "flex",
@@ -36,7 +21,7 @@ const headerStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   // Pushes the links to the far end of the bar.
   marginRight: "auto",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 const navStyle: CSSProperties = {
@@ -55,14 +40,16 @@ const linkStyle = ({ isActive }: { isActive: boolean }): CSSProperties => ({
   color: "var(--color-header-text)",
   textDecoration: "none",
   fontWeight: isActive ? 700 : 500,
-  boxShadow: isActive ? "inset 0 -3px 0 var(--color-header-text)" : "none",
+  boxShadow: isActive ? "inset 0 -3px 0 var(--brand-apricot)" : "none",
 });
 
 export default function AppHeader() {
   return (
     <header className="app-header" style={headerStyle}>
+      <img className="app-header-logo" src={brandLogo} alt="elias-ems" />
+      <img className="app-header-icon" src={brandIcon} alt="elias-ems" />
       <span className="app-header-title" style={titleStyle}>
-        elias-ems pv curtail helper
+        PV Curtail Helper
       </span>
       <nav style={navStyle}>
         <NavLink to="/" end style={linkStyle}>

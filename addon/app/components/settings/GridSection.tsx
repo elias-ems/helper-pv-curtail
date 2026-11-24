@@ -34,7 +34,7 @@ export default function GridSection({
           error={errors.powerEntityId}
         />
         <div>
-          <button type="submit" disabled={isSaving}>
+          <button className="primary-button" type="submit" disabled={isSaving}>
             {isSaving ? "Saving…" : "Save grid"}
           </button>
         </div>

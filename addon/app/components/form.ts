@@ -80,7 +80,7 @@ export const headingStyle: CSSProperties = { margin: 0, fontSize: "1.1rem" };
 export const pageTitleStyle: CSSProperties = {
   margin: 0,
   fontSize: "1.5rem",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 /**
@@ -91,7 +91,7 @@ export const pageTitleStyle: CSSProperties = {
  * go through the same tokens, so they stay in step where it matters.
  */
 export const cardStyle: CSSProperties = {
-  background: "var(--color-surface)",
+  background: "var(--color-form)",
   border: "1px solid var(--color-border)",
   borderRadius: 10,
   boxShadow: "var(--shadow-card)",

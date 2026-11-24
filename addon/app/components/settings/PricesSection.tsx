@@ -230,7 +230,7 @@ export default function PricesSection({
         )}
 
         <div>
-          <button type="submit" disabled={isSaving}>
+          <button className="primary-button" type="submit" disabled={isSaving}>
             {isSaving ? "Saving…" : "Save prices"}
           </button>
         </div>
