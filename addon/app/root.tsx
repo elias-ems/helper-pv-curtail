@@ -9,6 +9,7 @@ import {
 } from "react-router";
 import "./app.css";
 import type { Route } from "./+types/root";
+import brandIcon from "./assets/elias-ems-icon.svg?inline";
 import AppHeader from "./components/AppHeader";
 import { hintStyle } from "./components/form";
 
@@ -31,7 +32,8 @@ export function Layout({ children }: { children: ReactNode }) {
             parsed before the stylesheet loads, so the very first paint of the
             page canvas already matches the theme instead of flashing white. */}
         <meta name="color-scheme" content="light dark" />
-        <title>elias-ems pv curtail helper</title>
+        <title>PV Curtail Helper · elias-ems</title>
+        <link rel="icon" type="image/svg+xml" href={brandIcon} />
         <Meta />
         <Links />
       </head>
@@ -98,10 +100,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       <h1 style={{ margin: 0, fontSize: "1.25rem" }}>{title}</h1>
       <p style={{ margin: 0 }}>{explanation}</p>
 
-      {/* Unstyled, like every other button here: `color-scheme` is what makes
-          a native control follow Home Assistant's theme, and this page of all
-          pages should not depend on anything more than that. */}
-      <button type="button" onClick={() => window.location.reload()}>
+      <button
+        className="primary-button"
+        type="button"
+        onClick={() => window.location.reload()}
+      >
         Try again
       </button>
 

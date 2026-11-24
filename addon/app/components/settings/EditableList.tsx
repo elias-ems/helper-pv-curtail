@@ -67,7 +67,11 @@ export default function EditableList<TRecord extends { id: string }>({
                   <input type="hidden" name="id" value={record.id} />
                   {renderFields(record)}
                   <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button type="submit" disabled={savingId === record.id}>
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={savingId === record.id}
+                    >
                       {savingId === record.id ? "Saving…" : "Save"}
                     </button>
                     <button type="button" onClick={() => onEdit(null)}>
@@ -129,7 +133,11 @@ export default function EditableList<TRecord extends { id: string }>({
           <input type="hidden" name="intent" value={`${intent}-add`} />
           {renderFields(undefined)}
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button type="submit" disabled={isAdding}>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={isAdding}
+            >
               {isAdding ? "Adding…" : "Add"}
             </button>
             <button type="button" onClick={onCloseAdd}>

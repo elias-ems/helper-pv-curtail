@@ -319,7 +319,7 @@ export default function CurtailmentSection({
         </fieldset>
 
         <div>
-          <button type="submit" disabled={isSaving}>
+          <button className="primary-button" type="submit" disabled={isSaving}>
             {isSaving ? "Saving…" : "Save PV curtailment"}
           </button>
         </div>

@@ -16,41 +16,28 @@
 :root {
   color-scheme: light dark;
 
-  /* Page canvas, the panels that sit on it (inputs, the suggestions popover),
-     the tint that marks a chip apart from the page, and the darker tint of a
-     control that is currently pressed. */
-  --color-bg: light-dark(#ffffff, #16202a);
-  --color-surface: light-dark(#ffffff, #1f2933);
-  --color-surface-raised: light-dark(#f5f7fa, #323f4b);
-  --color-surface-active: light-dark(#e4e7eb, #3e4c59);
+  --brand-ink: #112f53;
+  --brand-paper: #f5f9ff;
+  --brand-cobalt: #3c84da;
+  --brand-apricot: #ffc08d;
+  --brand-soft: #e4efff;
+  --brand-deep-blue: #235991;
 
-  /* #616e7c rather than the lighter grey it replaces: the old muted colour
-     cleared 3.6:1 on white, which is under the 4.5:1 needed for body text. */
-  --color-text: light-dark(#1f2933, #f5f7fa);
-  --color-text-muted: light-dark(#616e7c, #9aa5b1);
-
-  --color-border: light-dark(#e4e7eb, #323f4b);
-  --color-border-strong: light-dark(#cbd2d9, #52606d);
-
-  --color-danger: light-dark(#cf1124, #ef4e4e);
-
-  /* Warnings in the diagnostics log — a control tick that decided something,
-     but with a reading it could not trust. Both ends clear 4.5:1 against the
-     surface they are drawn on: 5.2:1 on white, 8.9:1 on the dark canvas. */
-  --color-warning: light-dark(#8d6708, #f0b429);
-
-  /* A working live connection. Used for a dot and for the word beside it, so it
-     is picked to clear 4.5:1 as text rather than the 3:1 a graphic would need:
-     4.9:1 on white, 9.8:1 on the dark canvas. */
-  --color-success: light-dark(#0f7b3f, #3ddc84);
-
-  --color-focus: light-dark(#2186eb, #5eaaf5);
-
-  /* A link that is a link rather than body text. The focus blue is one step too
-     light for this: it clears the 3:1 a focus ring needs and only 3.7:1 against
-     white, where text wants 4.5:1. The dashboard's links are 12px and sit inside
-     cards, so they are underlined as well as coloured. */
-  --color-link: light-dark(#0967d2, #5eaaf5);
+  --color-bg: light-dark(var(--brand-paper), var(--brand-ink));
+  --color-surface: light-dark(#ffffff, #193b61);
+  --color-form: light-dark(var(--brand-soft), #193b61);
+  --color-surface-raised: light-dark(var(--brand-soft), #24496f);
+  --color-surface-active: light-dark(#d6e6fb, #2c557e);
+  --color-text: light-dark(var(--brand-ink), var(--brand-paper));
+  --color-text-muted: light-dark(#49617e, #bbd0e9);
+  --color-heading: light-dark(var(--brand-deep-blue), var(--brand-paper));
+  --color-border: light-dark(#ccdcef, #385b7f);
+  --color-border-strong: light-dark(#7189a6, #829ebc);
+  --color-danger: light-dark(#ae1829, #ffabb3);
+  --color-warning: light-dark(#775500, #ffd682);
+  --color-success: light-dark(#0f6938, #76e5a8);
+  --color-focus: light-dark(var(--brand-deep-blue), #a4cdff);
+  --color-link: light-dark(var(--brand-deep-blue), #acd1ff);
 
   /* What each part of the house is drawn in on the dashboard. Same ramps as
      everything above, picked so each clears 4.5:1 as a number on the surface it
@@ -96,13 +83,8 @@
     rgba(240, 180, 41, 0.13)
   );
 
-  /* The add-on's own top bar — the one surface here that isn't the page canvas.
-     Home Assistant's theme variables don't cross the ingress iframe, so this
-     can't track HA's real primary colour; it is HA's default blue darkened
-     until white text on it clears 4.5:1 (4.8:1 light, 7.4:1 dark). Stock
-     #03a9f4 manages only 2.2:1, which is why we don't simply reuse it. */
-  --color-header-bg: light-dark(#0277bd, #01579b);
-  --color-header-text: #ffffff;
+  --color-header-bg: var(--brand-ink);
+  --color-header-text: var(--brand-paper);
 
   --shadow-popover: light-dark(
     0 4px 12px rgba(0, 0, 0, 0.08),
@@ -123,16 +105,25 @@
 
 body {
   margin: 0;
-  /* `sans-serif` resolves to something different on every platform and to
-     Arial on most. `system-ui` follows the OS the way Home Assistant's own UI
-     does, which is what the add-on is embedded in. */
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
 }
 
 a {
-  color: inherit;
+  color: var(--color-link);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+::selection {
+  background: var(--brand-apricot);
+  color: var(--brand-ink);
 }
 
 /*
@@ -194,46 +185,54 @@ input {
   outline-offset: 2px;
 }
 
-/*
- * ---------------------------------------------------------------------------
- * Top bar
- * ---------------------------------------------------------------------------
- *
- * The two things an inline style cannot express, for the bar in
- * [AppHeader.tsx](components/AppHeader.tsx): a pseudo-class and a media query.
- * Everything else about the bar — its colours, its height, its stickiness —
- * stays inline in that component, as the rest of the app does.
- *
- * The focus blue all but vanishes against the header's own blue (1.3:1), so the
- * bar focuses in white instead — the colour it is already guaranteed to
- * contrast with.
- */
+.primary-button {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: var(--brand-apricot);
+  color: var(--brand-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--brand-apricot), var(--brand-paper) 24%);
+}
+
+.primary-button:disabled {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
 .app-header :focus-visible {
   outline-color: var(--color-header-text);
 }
 
-/*
- * The bar's spacing, base value and phone value together.
- *
- * Both halves are here rather than the base being inline and the override
- * fighting it from a media query: an inline style beats any selector, so the
- * narrow rules simply lost. That is not a hypothetical — this block used to
- * contain only the narrow half, and four of its five declarations did nothing
- * at all, three because AppHeader set the same property inline and the fourth
- * because it named a class no element carried. The same rule as the dashboard
- * layout below: if a property changes with the viewport, it lives here whole.
- *
- * 480px is where the slack runs out rather than a device width. At full size
- * the name and page tabs need more than a narrow phone has; tightened, they
- * still keep a useful touch target without pushing the bar wider than 320px.
- */
 .app-header {
   padding: 0 1rem;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--brand-cobalt);
+}
+
+.app-header-logo {
+  display: block;
+  width: 128px;
+  height: auto;
+  margin: 8px 0;
+}
+
+.app-header-icon {
+  display: none;
+  width: 28px;
+  height: 28px;
+  margin: 7px 0;
 }
 
 .app-header-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
 
 .app-header nav > a {
@@ -243,7 +242,15 @@ input {
 @media (max-width: 480px) {
   .app-header {
     padding-inline: 0.75rem;
-    gap: 0.25rem;
+    gap: 0.5rem;
+  }
+
+  .app-header-logo {
+    display: none;
+  }
+
+  .app-header-icon {
+    display: block;
   }
 
   .app-header-title,
