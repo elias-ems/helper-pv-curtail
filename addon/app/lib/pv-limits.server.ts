@@ -120,7 +120,7 @@ export type PvLimitPublish = {
 export type PvLimitCommand = {
   arrayId: string;
   title: string;
-  /** The array's slug: `helper_pv_curtail_<slug>_pv_limit`. */
+  /** The array's slug: `elias_ems_pv_curtail_<slug>_pv_limit`. */
   slug: string;
   /** The inverter's rating, so the event can carry watts as well as percent. */
   ratedPowerW: number;

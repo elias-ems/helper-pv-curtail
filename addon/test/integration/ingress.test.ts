@@ -116,7 +116,7 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
         productionFormula: "price - 10",
       };
       expect(await save(belgianPrices)).toContain(
-        "helper_pv_curtail_south_roof_pv_limit",
+        "elias_ems_pv_curtail_south_roof_pv_limit",
       );
       const persisted = await (await fetch(settings)).text();
       expect(persisted).toContain('value="BE" selected=""');
@@ -170,7 +170,7 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       });
       await save({ ...curtailment, enabled: "on" });
 
-      const eventType = "helper_pv_curtail_south_roof_pv_limit";
+      const eventType = "elias_ems_pv_curtail_south_roof_pv_limit";
       await expect
         .poll(() => stack.ha.events, { timeout: 10_000 })
         .toContainEqual(
@@ -214,7 +214,7 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       await stack.close();
     }
     expect(stack.ha.events.at(-1)).toMatchObject({
-      eventType: "helper_pv_curtail_south_roof_pv_limit",
+      eventType: "elias_ems_pv_curtail_south_roof_pv_limit",
       data: { limit_percent: 100, released: true },
     });
   } finally {
