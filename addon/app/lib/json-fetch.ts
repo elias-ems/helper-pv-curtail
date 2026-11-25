@@ -57,7 +57,7 @@ function useJson<T>(
   path: string,
   { enabled = true, intervalMs, hiddenIntervalMs, leading = true }: Options,
 ): JsonState<T> {
-  const [state, setState] = useState<JsonState<T>>({
+  const [state, setState] = useState<JsonState<T> & { href?: string }>({
     data: null,
     failing: false,
   });
@@ -115,13 +115,18 @@ function useJson<T>(
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = (await response.json()) as T;
-        if (!stopped) setState({ data, failing: false });
+        if (!stopped) setState({ data, failing: false, href });
       } catch {
         // Every failure is the same failure here: this round produced nothing.
         // Keeping the last payload and trying again is the entire point of the
         // hook, so there is nothing to rethrow to and nothing to log every two
         // seconds about.
-        if (!stopped) setState((previous) => ({ ...previous, failing: true }));
+        if (!stopped)
+          setState((previous) => ({
+            data: previous.href === href ? previous.data : null,
+            failing: true,
+            href,
+          }));
       } finally {
         inFlight = false;
         schedule();
@@ -146,5 +151,5 @@ function useJson<T>(
     };
   }, [href, enabled, intervalMs, hiddenIntervalMs, leading]);
 
-  return state;
+  return state.href === href ? state : { data: null, failing: false };
 }

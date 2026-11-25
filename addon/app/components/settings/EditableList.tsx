@@ -12,7 +12,7 @@ import { formStyle, hintStyle, linkButtonStyle, rowStyle } from "../form";
  * is the caller's decision, since only it can see whether the action that just
  * finished belonged to this section.
  */
-type EditableListProps<TRecord extends { id: string }> = {
+type EditableListProps<TRecord extends { id: string; title: string }> = {
   records: TRecord[];
   /** Forms post `${intent}-add`, `${intent}-update` and `${intent}-remove`. */
   intent: string;
@@ -26,7 +26,9 @@ type EditableListProps<TRecord extends { id: string }> = {
   renderFields: (record: TRecord | undefined) => ReactNode;
 };
 
-export default function EditableList<TRecord extends { id: string }>({
+export default function EditableList<
+  TRecord extends { id: string; title: string },
+>({
   records,
   intent,
   emptyMessage,
@@ -99,7 +101,17 @@ export default function EditableList<TRecord extends { id: string }>({
                     >
                       Edit
                     </button>
-                    <Form method="post">
+                    <Form
+                      method="post"
+                      onSubmit={(event) => {
+                        if (
+                          !window.confirm(
+                            `Remove “${record.title}” from Settings?`,
+                          )
+                        )
+                          event.preventDefault();
+                      }}
+                    >
                       <input
                         type="hidden"
                         name="intent"
@@ -109,6 +121,7 @@ export default function EditableList<TRecord extends { id: string }>({
                       <button
                         type="submit"
                         style={linkButtonStyle("var(--color-danger)")}
+                        aria-label={`Remove ${record.title}`}
                       >
                         Remove
                       </button>

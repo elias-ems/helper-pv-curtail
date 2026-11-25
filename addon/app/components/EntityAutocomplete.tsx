@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useState } from "react";
 import {
   DEFAULT_OFFERABLE_DOMAIN,
   type EntitiesData,
@@ -53,8 +53,10 @@ export default function EntityAutocomplete({
   const [query, setQuery] = useState(defaultValue);
   const [selected, setSelected] = useState(defaultValue);
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(-1);
   const inputId = useId();
+  const listId = `${inputId}-list`;
+  const messageId = `${inputId}-message`;
 
   const value = selected || query;
   // `onValueChange` is a setter from the caller's own state (or omitted
@@ -95,45 +97,89 @@ export default function EntityAutocomplete({
     { enabled: open },
   );
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const entities = query === debounced ? (data?.entities ?? []) : [];
+  const expanded = open && entities.length > 0;
+  const activeOption =
+    expanded && entities[active] ? `${listId}-${active}` : undefined;
 
-  const entities = data?.entities ?? [];
+  useEffect(() => {
+    if (activeOption)
+      document
+        .getElementById(activeOption)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [activeOption]);
+
   // The loader reports a Home Assistant it couldn't read as a value; `failing`
   // is the other half — the request never reaching the add-on at all.
   const loadError = failing ? "the add-on didn't answer" : data?.error;
 
+  const message =
+    activeError ??
+    (open && loadError
+      ? `Couldn't load Home Assistant entities: ${loadError}. You can still type an entity ID manually.`
+      : hint);
+
+  function close() {
+    setOpen(false);
+    setActive(-1);
+  }
+
   function selectEntity(entityId: string) {
     setSelected(entityId);
     setQuery(entityId);
-    setOpen(false);
+    close();
     setDismissed(true);
   }
 
+  function navigateOptions(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "Escape" && open) {
+      event.preventDefault();
+      close();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      if (entities.length) {
+        setActive((previous) =>
+          previous < 0
+            ? direction === 1
+              ? 0
+              : entities.length - 1
+            : Math.max(0, Math.min(entities.length - 1, previous + direction)),
+        );
+      }
+    } else if (event.key === "Enter" && activeOption) {
+      event.preventDefault();
+      selectEntity(entities[active].entityId);
+    }
+  }
+
   return (
-    <div ref={containerRef} style={{ ...fieldStyle, position: "relative" }}>
+    <div style={{ ...fieldStyle, position: "relative" }}>
       <label htmlFor={inputId} style={labelStyle}>
         {label}
       </label>
       <input
         id={inputId}
         type="text"
+        role="combobox"
+        aria-expanded={expanded}
+        aria-controls={expanded ? listId : undefined}
+        aria-autocomplete="list"
+        aria-activedescendant={activeOption}
+        aria-invalid={Boolean(activeError) || undefined}
+        aria-describedby={message ? messageId : undefined}
+        onKeyDown={navigateOptions}
+        onBlur={close}
+        spellCheck={false}
         autoComplete="off"
         placeholder={placeholder}
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
           setSelected("");
+          setActive(-1);
           setOpen(true);
           setDismissed(true);
         }}
@@ -142,13 +188,15 @@ export default function EntityAutocomplete({
       />
       <input type="hidden" name={name} value={value} />
 
-      {open && entities.length > 0 && (
+      {expanded && (
         <ul
           // The ARIA combobox pattern wants exactly this — a ul carrying
           // role=listbox wrapping li role=option. The rule doesn't model the
           // composite widget, so it reads the ul in isolation and objects.
           // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: see above
           role="listbox"
+          id={listId}
+          aria-label={label}
           style={{
             position: "absolute",
             top: "100%",
@@ -167,21 +215,25 @@ export default function EntityAutocomplete({
             boxShadow: "var(--shadow-popover)",
           }}
         >
-          {entities.map((entity) => (
+          {entities.map((entity, index) => (
             // The li is presentational so the listbox's children are the
             // options themselves, which is what the role expects.
             <li key={entity.entityId} role="presentation">
               <button
                 type="button"
                 role="option"
-                aria-selected={selected === entity.entityId}
+                id={`${listId}-${index}`}
+                tabIndex={-1}
+                aria-selected={active === index}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectEntity(entity.entityId)}
                 style={{
                   width: "100%",
                   textAlign: "left",
                   padding: "0.4rem 0.5rem",
                   border: "none",
-                  background: "none",
+                  background:
+                    active === index ? "var(--color-surface-active)" : "none",
                   cursor: "pointer",
                   borderRadius: 4,
                 }}
@@ -197,15 +249,10 @@ export default function EntityAutocomplete({
         </ul>
       )}
 
-      {activeError && <p style={errorStyle}>{activeError}</p>}
-      {!activeError && open && loadError && (
-        <p style={hintStyle}>
-          Couldn't load Home Assistant entities: {loadError}. You can still type
-          an entity ID manually.
+      {message && (
+        <p id={messageId} style={activeError ? errorStyle : hintStyle}>
+          {message}
         </p>
-      )}
-      {!activeError && !(open && loadError) && hint && (
-        <p style={hintStyle}>{hint}</p>
       )}
     </div>
   );

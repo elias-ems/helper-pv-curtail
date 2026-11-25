@@ -409,6 +409,9 @@ export type CurtailmentErrors = Partial<
  * because it needs the array list, and this module is pure; the constant is
  * here so the form's warning and the server's rejection cannot drift apart.
  */
+export const NO_GRID_ERROR =
+  "Choose a grid power sensor before enabling PV curtailment.";
+
 export const NO_CURTAILABLE_ARRAY_ERROR =
   "At least one PV array needs to be curtailable, with its inverter's rated power filled in, before curtailment can be enabled.";
 
