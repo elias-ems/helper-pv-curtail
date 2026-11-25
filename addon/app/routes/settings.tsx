@@ -53,9 +53,6 @@ export async function loader() {
     readGrid(),
     listBatteries(),
     readCurtailmentConfig(),
-    // Its own read rather than the dashboard's: this page has no readings to
-    // borrow, and what it needs is the *summary* — proof that the entity picked
-    // is really a price feed, which is only knowable by going and looking.
     readPrices(),
   ]);
 
@@ -252,18 +249,13 @@ async function settingsAction({ request }: Route.ActionArgs) {
 
       await savePriceConfig(parsed.config);
 
-      // Logged here and nowhere else on this path. The read side runs on every
-      // dashboard render and every stream push, so logging what it found would
-      // fill the buffer with the same sentence; the card shows that state
-      // instead. A configuration change is rare, deliberate, and exactly what
-      // somebody reading back a control decision later needs to see beside it.
       const { read } = await readPrices();
       appendDiagnostic(
         "prices",
         read.error ? "warn" : "info",
         read.error
-          ? `Prices from ${parsed.config.forecastEntityId}: ${read.error}`
-          : `Prices from ${parsed.config.forecastEntityId} — ${summarizePrices(read).detail}`,
+          ? `Prices from ${parsed.config.region || "no bidding zone"}: ${read.error}`
+          : `Prices from ${parsed.config.region || "no bidding zone"} — ${summarizePrices(read).detail}`,
       );
 
       return { section: "prices" as const, ok: true as const };

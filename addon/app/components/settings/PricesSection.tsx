@@ -2,13 +2,13 @@ import { useId, useState } from "react";
 import { Form, useNavigation } from "react-router";
 import { applyFormula } from "../../lib/price-formula";
 import {
+  PRICE_REGIONS,
   PRICE_SOURCES,
   type PriceConfig,
   type PriceSourceSummary,
 } from "../../lib/prices";
 import type { SettingsActionData } from "../../lib/settings-form";
 import { failureFor } from "../../lib/settings-form";
-import EntityAutocomplete from "../EntityAutocomplete";
 import {
   errorStyle,
   fieldStyle,
@@ -41,7 +41,8 @@ function FormulaPreview({
   if (spotPerKwh === null) {
     return (
       <p style={hintStyle}>
-        Pick an entity and save to see this worked out against a real price.
+        Pick a bidding zone and save to see this worked out against a real
+        price.
       </p>
     );
   }
@@ -111,7 +112,7 @@ export default function PricesSection({
   actionData,
 }: {
   config: PriceConfig;
-  /** What the server made of the configured entity, on the last load. */
+  /** What the server made of the configured bidding zone, on the last load. */
   summary: PriceSourceSummary;
   actionData?: SettingsActionData;
 }) {
@@ -122,19 +123,10 @@ export default function PricesSection({
     navigation.formData?.get("intent") === "prices-save";
 
   const sourceId = useId();
-  // Held in state so the rest of the form can appear with the choice rather
-  // than after a save — there is nothing to pick an entity for until then.
+  const regionId = useId();
   const [source, setSource] = useState(config.source);
-  const selected = PRICE_SOURCES.find((option) => option.id === source);
-
-  // `summary` describes the entity that's actually saved, read back on the
-  // last load — it can't know anything about an entity picked since. Track
-  // what's currently in the field so the check below stops claiming to be
-  // about it the moment they diverge, rather than showing a stale result
-  // (most confusingly, the old entity's error) against the new pick until
-  // the next save.
-  const [liveEntityId, setLiveEntityId] = useState(config.forecastEntityId);
-  const summaryIsCurrent = liveEntityId === config.forecastEntityId;
+  const [region, setRegion] = useState<string>(config.region);
+  const summaryIsCurrent = source === config.source && region === config.region;
   const effectiveSummary: PriceSourceSummary = summaryIsCurrent
     ? summary
     : { ...summary, spotPerKwh: null };
@@ -142,7 +134,7 @@ export default function PricesSection({
   return (
     <Section
       title="Prices"
-      description="Where the day-ahead energy prices come from, and the arithmetic that turns a market price into what you actually pay and are paid. Nothing acts on them yet — this imports and shows them."
+      description="Choose a price source and the tariff formulas for grid import and export."
     >
       <Form method="post" style={{ ...formStyle, marginTop: "1rem" }}>
         <input type="hidden" name="intent" value="prices-save" />
@@ -166,35 +158,47 @@ export default function PricesSection({
               </option>
             ))}
           </select>
-          {errors.source ? (
-            <p style={errorStyle}>{errors.source}</p>
-          ) : (
-            selected && <p style={hintStyle}>{selected.description}</p>
-          )}
+          {errors.source && <p style={errorStyle}>{errors.source}</p>}
         </div>
 
-        {source === "home-assistant" && (
+        {source === "none" && (
           <>
-            <EntityAutocomplete
-              name="forecastEntityId"
-              label="Prices — the day-ahead sensor"
-              placeholder="e.g. sensor.energi_epex_spot"
-              defaultValue={config.forecastEntityId}
-              error={errors.forecastEntityId}
-              onValueChange={setLiveEntityId}
+            <input
+              type="hidden"
+              name="consumptionFormula"
+              value={config.consumptionFormula}
             />
+            <input
+              type="hidden"
+              name="productionFormula"
+              value={config.productionFormula}
+            />
+          </>
+        )}
 
-            {/*
-              The check that the right sensor was picked. An integration that
-              publishes both a market price and a *total* price offers two
-              plausible neighbours, and pointing a markup formula at the one
-              that already includes markups double-counts into a number that
-              still looks like a price. Reading back the series — and the
-              worked-out prices below — is what makes that visible.
+        {source === "epex-predictor" && (
+          <>
+            <div style={fieldStyle}>
+              <label htmlFor={regionId} style={labelStyle}>
+                Country or bidding zone
+              </label>
+              <select
+                id={regionId}
+                name="region"
+                value={region}
+                onChange={(event) => setRegion(event.target.value)}
+                style={inputStyle(Boolean(errors.region))}
+              >
+                <option value="">Select a bidding zone</option>
+                {Object.entries(PRICE_REGIONS).map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {errors.region && <p style={errorStyle}>{errors.region}</p>}
+            </div>
 
-              Only shown while it's actually about the entity in the field:
-              `summary` is a fact about what's saved, not what's typed.
-            */}
             {summaryIsCurrent && (
               <>
                 <p style={summary.ok ? hintStyle : errorStyle}>
@@ -211,7 +215,7 @@ export default function PricesSection({
 
             <FormulaField
               name="consumptionFormula"
-              label="Consumption price — what a kWh off the grid costs"
+              label="Grid import price formula"
               hint="Arithmetic over `price`, the market price per kWh. e.g. ((price * 1.02) + 0.1272) * 1.06 for a slope, a fixed charge and VAT. `min` and `max` are available."
               defaultValue={config.consumptionFormula}
               error={errors.consumptionFormula}
@@ -220,7 +224,7 @@ export default function PricesSection({
 
             <FormulaField
               name="productionFormula"
-              label="Production price — what a kWh onto the grid earns"
+              label="Grid export price formula"
               hint="Usually a different formula. e.g. max(price * 0.98 - 0.015, 0) to take a cut and never go below zero, or just 0.05 for a fixed injection tariff."
               defaultValue={config.productionFormula}
               error={errors.productionFormula}
