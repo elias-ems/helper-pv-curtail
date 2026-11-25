@@ -65,14 +65,20 @@ export default function HomeDeviceStatus({
         ) : (
           <ul className="home-status-list">
             {devices.map((device) => (
-              <li key={device.key}>
+              <li className="home-device-row" key={device.key}>
                 <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                   <strong>{device.title}</strong>
                   <p style={hintStyle}>
                     {device.kind} · {device.entityId}
                   </p>
                 </div>
-                <div style={{ marginInlineStart: "auto", textAlign: "end" }}>
+                <div
+                  style={{
+                    minWidth: 0,
+                    overflowWrap: "anywhere",
+                    textAlign: "end",
+                  }}
+                >
                   <strong>{deviceReading(device)}</strong>
                   {device.kind === "PV array" && (
                     <p style={hintStyle}>
