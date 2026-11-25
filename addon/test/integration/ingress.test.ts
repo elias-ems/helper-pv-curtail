@@ -69,6 +69,12 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(html.indexOf("Energy prices")).toBeLessThan(
         html.indexOf("Curtailment is disabled."),
       );
+      expect(html.indexOf("Energy prices")).toBeLessThan(
+        html.indexOf(">PV Curtailment</h2>"),
+      );
+      expect(html.indexOf(">PV Curtailment</h2>")).toBeLessThan(
+        html.indexOf(">Linked devices</h2>"),
+      );
       expect(html).toContain("No devices linked yet.");
       expect(html).toContain("No limits sent since the app started.");
       expect(html).not.toContain("nothing logged yet");

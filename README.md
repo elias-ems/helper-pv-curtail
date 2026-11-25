@@ -24,7 +24,7 @@ If you previously used a Home Assistant price sensor, select EPEX Predictor and 
 
 ## Home dashboard
 
-Home shows the readings from linked grid, PV, battery, and EV sensors. Recent limits lists the last 20 events accepted by Home Assistant since the app started, including releases.
+Home shows the readings from linked grid, PV, battery, and EV sensors. The PV Curtailment card lists the last 20 events accepted by Home Assistant since the app started, including releases.
 
 ## Inverter automation
 
