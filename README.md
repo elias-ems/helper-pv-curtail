@@ -12,7 +12,7 @@ Elias-ems PV Curtailment uses the grid meter, PV power readings, and your export
 4. Select **EPEX Predictor**, choose your country or bidding zone, and enter your grid import and export formulas. Check the export formula against your tariff. A threshold of zero curtails when exporting costs money.
 5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Diagnostics** to check decisions and event delivery.
 
-If you migrate an array from elias-ems, disable its old curtailment first, then update the automation's event trigger to the new name shown in Settings. Renaming an array can change that name.
+If you migrate an array from elias-ems, disable its old curtailment first, then update the automation's event trigger to the new name shown in Settings. Renaming an array can change that name. If you already use the standalone app, update any inverter automation listening for the previous `helper_pv_curtail_` prefix as part of the upgrade.
 
 ## Price source
 
@@ -34,7 +34,7 @@ The app emits a Home Assistant event for each array. Your automation translates 
 alias: South roof PV limit
 triggers:
   - trigger: event
-    event_type: helper_pv_curtail_south_roof_pv_limit
+    event_type: elias_ems_pv_curtail_south_roof_pv_limit
 actions:
   - action: number.set_value
     target:

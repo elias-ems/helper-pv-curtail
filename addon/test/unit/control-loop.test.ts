@@ -259,7 +259,7 @@ describe("runControlTick, curtailment half", () => {
     // take 2076.5 W — 42% of a 5000 W inverter.
     expect(logged("arrays at 1235 W → allow 2077 W total")).toBe(true);
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 42, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 42, false],
     ]);
   });
 
@@ -273,7 +273,7 @@ describe("runControlTick, curtailment half", () => {
 
     expect(logged("nothing to curtail")).toBe(true);
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 100, true],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 100, true],
     ]);
   });
 
@@ -307,7 +307,7 @@ describe("runControlTick, curtailment half", () => {
     expect(logged("while the battery discharges 1000 W")).toBe(true);
     expect(logged("arrays at 1235 W → allow 3077 W total")).toBe(true);
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 62, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 62, false],
     ]);
     // Read, never commanded: battery control is off, and this half does not
     // publish for a battery whatever it reads from one.
@@ -366,7 +366,7 @@ describe("runControlTick, curtailment half", () => {
     await runControlTick();
     // One event to say "generate freely", and then nothing.
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 100, true],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 100, true],
     ]);
 
     // The bulk of the noise, and the reason this matters: injection prices are
@@ -421,7 +421,7 @@ describe("runControlTick, curtailment half", () => {
     await runControlTick();
 
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 42, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 42, false],
     ]);
   });
 
@@ -437,7 +437,7 @@ describe("runControlTick, curtailment half", () => {
     await vi.advanceTimersByTimeAsync(31_000);
     await runControlTick();
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 42, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 42, false],
     ]);
 
     // The meter swings further out, and the obvious reading of it is that the
@@ -458,7 +458,7 @@ describe("runControlTick, curtailment half", () => {
     await runControlTick();
 
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 5, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 5, false],
     ]);
   });
 
@@ -494,7 +494,7 @@ describe("runControlTick, curtailment half", () => {
     await runControlTick();
 
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 70, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 70, false],
     ]);
     expect(logged("Soft ceiling")).toBe(true);
   });
@@ -509,7 +509,7 @@ describe("runControlTick, curtailment half", () => {
     // 1234.5 + (842 + 2000) is 4076 W — 82% rather than the 42% the same house
     // gets below the threshold.
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 82, false],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 82, false],
     ]);
     expect(logged("up to 2000 W may cross the meter")).toBe(true);
   });
@@ -526,7 +526,7 @@ describe("runControlTick, curtailment half", () => {
     // array left pinned loses a sunny day with nothing looking wrong.
     expect(logged("grid power sensor is not readable")).toBe(true);
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 100, true],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 100, true],
     ]);
   });
 
@@ -567,7 +567,7 @@ describe("syncControlLoop, with curtailment", () => {
     // The single most important thing this feature does: an array that stops
     // being decided for must be handed back, or the last limit stands for ever.
     expect(pvLimitEvents()).toEqual([
-      ["helper_pv_curtail_south_roof_pv_limit", 100, true],
+      ["elias_ems_pv_curtail_south_roof_pv_limit", 100, true],
     ]);
     expect(logged("Released the array to 100%.")).toBe(true);
   });
@@ -832,14 +832,14 @@ it("switches to the new price interval without a meter event", async () => {
   await syncControlLoop();
   await pendingControlTick();
   expect(pvLimitEvents().at(-1)).toEqual([
-    "helper_pv_curtail_south_roof_pv_limit",
+    "elias_ems_pv_curtail_south_roof_pv_limit",
     42,
     false,
   ]);
 
   await advance(5_000);
   expect(pvLimitEvents().at(-1)).toEqual([
-    "helper_pv_curtail_south_roof_pv_limit",
+    "elias_ems_pv_curtail_south_roof_pv_limit",
     100,
     true,
   ]);
