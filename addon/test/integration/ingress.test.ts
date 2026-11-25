@@ -7,10 +7,16 @@ import {
   bandFieldName,
   DEFAULT_CURTAILMENT_CONFIG,
 } from "../../app/lib/curtailment";
+import { forecastWindow } from "../../app/lib/forecast-window.server";
+import type { HomePriceForecast } from "../../app/lib/price-forecast";
 import { startStack } from "../stack.js";
 
 it("configures EPEX Predictor through ingress and releases on unverified prices, disable and shutdown", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "helper-pv-curtail-"));
+  const now = Date.now();
+  const current = Math.floor(now / 900_000) * 900_000;
+  const { start: today, tomorrow } = forecastWindow(now, "Europe/Brussels");
+  const slots = [...new Set([today, current, current + 900_000, tomorrow])];
   const priceApi = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     response.setHeader("Content-Type", "application/json");
@@ -18,26 +24,26 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       const region = url.searchParams.get("region");
       expect(["BE", "NL"]).toContain(region);
       expect(url.searchParams.get("unit")).toBe("EUR_PER_KWH");
-      const start = Date.parse(url.searchParams.get("startTs") ?? "");
+      expect(Date.parse(url.searchParams.get("startTs") ?? "")).toBe(today);
       response.end(
         JSON.stringify({
-          prices: [start, start + 900_000].map((ts) => ({
+          prices: slots.map((ts) => ({
             startsAt: new Date(ts).toISOString(),
             total: 0.2,
           })),
           knownUntil:
             region === "NL"
-              ? new Date(start - 900_000).toISOString()
-              : new Date(start + 900_000).toISOString(),
+              ? new Date(current - 900_000).toISOString()
+              : new Date(current).toISOString(),
         }),
       );
     } else {
       expect(["BE", "NL"]).toContain(url.searchParams.get("bzn"));
-      const start = Number(url.searchParams.get("start"));
+      expect(Number(url.searchParams.get("start"))).toBe(today / 1000);
       response.end(
         JSON.stringify({
-          unix_seconds: [start, start + 900],
-          price: [200, 200],
+          unix_seconds: slots.map((slot) => slot / 1000),
+          price: slots.map(() => 200),
           unit: "EUR / MWh",
         }),
       );
@@ -102,6 +108,30 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       const persisted = await (await fetch(settings)).text();
       expect(persisted).toContain('value="BE" selected=""');
       expect(persisted).toContain("-9.8000 EUR/kWh");
+
+      const forecast = (await (
+        await fetch(new URL("api/price-forecast", stack.baseUrl))
+      ).json()) as HomePriceForecast;
+      expect(forecast.window.tomorrow).toBe(tomorrow);
+      expect(forecast.points).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            start: today,
+            price: -9.8,
+            verified: true,
+          }),
+          expect.objectContaining({
+            start: tomorrow,
+            price: -9.8,
+            verified: false,
+          }),
+        ]),
+      );
+      const chart = await (await fetch(stack.baseUrl)).text();
+      expect(chart).toContain(
+        "Grid export prices in EUR per kWh for today and tomorrow",
+      );
+      expect(chart).toContain("Unverified forecast");
 
       const curtailment: Record<string, string> = {
         intent: "curtailment-save",
