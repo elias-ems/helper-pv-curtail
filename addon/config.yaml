@@ -10,6 +10,6 @@ init: true
 ingress: true
 ingress_port: 3000
 homeassistant_api: true
-panel_icon: mdi:solar-power
+panel_icon: mdi:lightning-bolt
 startup: application
 boot: auto
