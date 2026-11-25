@@ -6,7 +6,10 @@ import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import type { EntryContext, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
-import { syncControlLoop } from "./lib/control-loop.server";
+import { requestPriceTick, syncControlLoop } from "./lib/control-loop.server";
+import { startPriceRefresh } from "./lib/price-source.server";
+
+startPriceRefresh(requestPriceTick);
 
 // Fire and forget: nothing about serving the first request depends on this, and
 // a failure here (an unreadable /data, say) must not stop the panel from coming

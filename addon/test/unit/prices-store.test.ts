@@ -1,251 +1,156 @@
-/**
- * Persisting the price configuration, and the door in front of whatever source
- * it names.
- *
- * `DATA_DIR` is read per call by store.server.ts, so setting the variable is
- * enough — no `vi.resetModules()` needed.
- */
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
-  priceEntityIds,
-  readPricesFrom,
-  summarizePrices,
+  cachedPrices,
+  refreshPrices,
+  verifyPredictorPrices,
 } from "../../app/lib/price-source.server";
-import { DEFAULT_PRICE_CONFIG, type PriceConfig } from "../../app/lib/prices";
+import {
+  DEFAULT_PRICE_CONFIG,
+  type PriceConfig,
+  parsePriceForecast,
+  parsePriceFormulas,
+  priceSlot,
+} from "../../app/lib/prices";
 import { readPriceConfig, savePriceConfig } from "../../app/lib/prices.server";
-import type { StateRead } from "../../app/lib/states.server";
 
 let dataDir: string;
-
 beforeEach(async () => {
-  dataDir = await mkdtemp(path.join(os.tmpdir(), "elias-ems-prices-"));
-  process.env.DATA_DIR = dataDir;
+  dataDir = await mkdtemp(path.join(os.tmpdir(), "helper-prices-"));
+  vi.stubEnv("DATA_DIR", dataDir);
 });
 
 afterEach(async () => {
-  delete process.env.DATA_DIR;
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
   await rm(dataDir, { recursive: true, force: true });
 });
 
-const configured: PriceConfig = {
-  source: "home-assistant",
-  forecastEntityId: "sensor.energi_epex_spot",
+const config: PriceConfig = {
+  source: "epex-predictor",
+  region: "BE",
   consumptionFormula: "((price * 1.02) + 0.1272) * 1.06",
-  productionFormula: "max(price * 0.98 - 0.015, 0)",
+  productionFormula: "price * 0.98 - 0.015",
 };
 
-/** Quarter-hourly slots either side of `aroundIso`, as the entity publishes them. */
-function entityState(aroundIso: string, prices: number[]): StateRead {
-  const startMs = Date.parse(aroundIso);
-  return {
-    state: {
-      entity_id: "sensor.energi_epex_spot",
-      state: String(prices[0]),
-      attributes: {
-        currency: "EUR",
-        region: "Belgium",
-        tomorrow_valid: false,
-        unit_of_measurement: "EUR/kWh",
-        raw_today: prices.map((price, index) => ({
-          hour: new Date(startMs + index * 15 * 60_000).toISOString(),
-          price,
-        })),
-      },
+it("persists the source, zone and formulas and defaults to unconfigured", async () => {
+  expect(await readPriceConfig()).toEqual(DEFAULT_PRICE_CONFIG);
+  await savePriceConfig(config);
+  expect(await readPriceConfig()).toEqual(config);
+});
+
+it("retires a legacy entity source and keeps its formulas for reselection", async () => {
+  await writeFile(
+    path.join(dataDir, "prices.json"),
+    JSON.stringify({
+      ...config,
+      source: "home-assistant",
+      region: undefined,
+      forecastEntityId: "sensor.old",
+    }),
+  );
+  expect(await readPriceConfig()).toEqual({
+    ...config,
+    source: "none",
+    region: "",
+  });
+});
+
+const published = (dates: string[], market: number[]) => ({
+  unit: "EUR / MWh",
+  unix_seconds: dates.map((date) => Date.parse(date) / 1000),
+  price: market,
+});
+
+it("uses the same raw spot and applies formulas once, matching the legacy HA format", () => {
+  const start = "2026-11-25T10:00:00Z";
+  const { slots } = verifyPredictorPrices(
+    {
+      knownUntil: start,
+      prices: [{ startsAt: start, total: 0.1821 }],
     },
-    updatedAt: startMs,
-    source: "live",
-  };
-}
-
-describe("the stored configuration", () => {
-  it("reads an unconfigured default before anything is saved", async () => {
-    expect(await readPriceConfig()).toEqual(DEFAULT_PRICE_CONFIG);
+    published([start], [182.13]),
+  );
+  const legacy = parsePriceForecast({
+    currency: "EUR",
+    unit_of_measurement: "EUR/kWh",
+    raw_today: [
+      { hour: start, price: 0.18213 },
+      { hour: "2026-11-25T10:15:00Z", price: 0.19 },
+    ],
   });
-
-  it("round trips", async () => {
-    await savePriceConfig(configured);
-    expect(await readPriceConfig()).toEqual(configured);
-  });
-
-  it("normalizes a hand-edited file", async () => {
-    await mkdir(dataDir, { recursive: true });
-    await writeFile(
-      path.join(dataDir, "prices.json"),
-      JSON.stringify({
-        source: "home-assistant",
-        forecastEntityId: "  sensor.prices  ",
-      }),
-    );
-
-    const config = await readPriceConfig();
-
-    expect(config.forecastEntityId).toBe("sensor.prices");
-    expect(config.consumptionFormula).toBe("price");
-  });
-
-  it("stores only the configuration, never the forecast", async () => {
-    // Home Assistant already holds and persists the prices; a second copy here
-    // would be a cache with nothing to add and its own way of going stale.
-    await savePriceConfig(configured);
-    const stored = await readPriceConfig();
-
-    expect(Object.keys(stored).sort()).toEqual([
-      "consumptionFormula",
-      "forecastEntityId",
-      "productionFormula",
-      "source",
-    ]);
-  });
+  if (!legacy.ok) throw new Error(legacy.error);
+  const formulas = parsePriceFormulas(config);
+  expect(priceSlot(slots[0], formulas)).toEqual(
+    priceSlot(legacy.forecast.slots[0], formulas),
+  );
 });
 
-describe("which entities prices need", () => {
-  it("asks for the configured sensor", () => {
-    expect(priceEntityIds(configured)).toEqual(["sensor.energi_epex_spot"]);
-  });
-
-  it("asks for nothing while unconfigured", () => {
-    // An empty setting must not become a request for the entity id "".
-    expect(priceEntityIds(DEFAULT_PRICE_CONFIG)).toEqual([]);
-    expect(priceEntityIds({ ...configured, forecastEntityId: "" })).toEqual([]);
-  });
-});
-
-describe("reading through the door", () => {
-  const at = "2026-08-18T22:00:00.000Z";
-  const read = entityState(at, [0.1821, 0.1915, 0.1779]);
-
-  it("applies both formulas to the slot covering now", () => {
-    const result = readPricesFrom(
-      configured,
-      read,
-      Date.parse("2026-08-18T22:05:00.000Z"),
-    );
-
-    expect(result.now?.spotPerKwh).toBe(0.1821);
-    expect(result.now?.consumptionPerKwh).toBeCloseTo(0.331719, 6);
-    expect(result.now?.productionPerKwh).toBeCloseTo(0.163458, 6);
-    expect(result.error).toBeNull();
-  });
-
-  it("follows the clock into the next slot without anything refetching", () => {
-    // The entity's state changes at each boundary, which is what pushes a new
-    // read; but the slot the forecast answers with is chosen by the instant.
-    const later = readPricesFrom(
-      configured,
-      read,
-      Date.parse("2026-08-18T22:20:00.000Z"),
-    );
-
-    expect(later.now?.spotPerKwh).toBe(0.1915);
-  });
-
-  it("reports nothing at all while unconfigured, and calls it no error", () => {
-    const result = readPricesFrom(DEFAULT_PRICE_CONFIG, undefined);
-
-    expect(result).toMatchObject({
-      configured: false,
-      forecast: null,
-      now: null,
-      error: null,
-    });
-  });
-
-  it("says which entity is missing when Home Assistant doesn't know it", () => {
-    const result = readPricesFrom(configured, {
-      state: null,
-      updatedAt: null,
-      source: "live",
-    });
-
-    expect(result.error).toContain("sensor.energi_epex_spot");
-  });
-
-  it("reports an unreachable Home Assistant rather than an empty forecast", () => {
-    expect(readPricesFrom(configured, undefined).error).toMatch(
-      /could not be reached/,
-    );
-  });
-
-  it("explains an entity that is not a price feed", () => {
-    const result = readPricesFrom(configured, {
-      state: {
-        entity_id: "sensor.energi_epex_spot",
-        state: "21.5",
-        attributes: { unit_of_measurement: "°C" },
+it.each([
+  ["autumn", "2026-10-25T02:45:00+02:00", "2026-10-25T02:00:00+01:00"],
+  ["spring", "2026-03-29T01:45:00+01:00", "2026-03-29T03:00:00+02:00"],
+])(
+  "keeps quarter-hour UTC intervals through the %s DST transition",
+  (_, first, second) => {
+    const { slots } = verifyPredictorPrices(
+      {
+        knownUntil: second,
+        prices: [
+          { startsAt: second, total: -0.05 },
+          { startsAt: first, total: 0.2 },
+        ],
       },
-      updatedAt: null,
-      source: "live",
-    });
-
-    expect(result.error).toMatch(/raw_today|data/);
-    expect(result.now).toBeNull();
-  });
-
-  it("keeps the forecast but reports no current price outside its coverage", () => {
-    // A feed that stopped refreshing still has yesterday's shape to show. The
-    // absent *current* price is the part worth saying out loud.
-    const result = readPricesFrom(
-      configured,
-      read,
-      Date.parse("2026-08-20T12:00:00.000Z"),
+      published([first, second], [200, -50]),
     );
+    expect(slots).toHaveLength(2);
+    expect(slots[0].end).toEqual(slots[1].start);
+    expect(slots[1].spotPerKwh).toBe(-0.05);
+  },
+);
 
-    expect(result.forecast).not.toBeNull();
-    expect(result.now).toBeNull();
-    expect(result.error).toMatch(/don't cover right now/);
-  });
-
-  it("leaves a leg empty rather than reporting spot under its label", () => {
-    const result = readPricesFrom(
-      { ...configured, consumptionFormula: "price / 0" },
-      read,
-      Date.parse("2026-08-18T22:05:00.000Z"),
-    );
-
-    expect(result.now?.consumptionPerKwh).toBeNull();
-    expect(result.now?.productionPerKwh).not.toBeNull();
-  });
+it("rejects forecast-only slots, missing market rows and conflicting estimates", () => {
+  const dates = [
+    "2026-11-25T10:00:00Z",
+    "2026-11-25T10:15:00Z",
+    "2026-11-25T10:30:00Z",
+    "2026-11-25T10:45:00Z",
+  ];
+  const { slots } = verifyPredictorPrices(
+    {
+      knownUntil: dates[2],
+      prices: dates.map((startsAt) => ({ startsAt, total: 0.2 })),
+    },
+    published([dates[0], dates[2], dates[3]], [250, 200, 200]),
+  );
+  expect(slots.map((slot) => Date.parse(slot.start))).toEqual([
+    Date.parse(dates[2]),
+  ]);
 });
 
-describe("what the settings page shows back", () => {
-  it("describes the series so the right sensor can be recognised", () => {
-    const summary = summarizePrices(
-      readPricesFrom(
-        configured,
-        entityState("2026-08-18T22:00:00.000Z", [0.1821, 0.1915, 0.1779]),
-        Date.parse("2026-08-18T22:05:00.000Z"),
-      ),
-    );
-
-    expect(summary.ok).toBe(true);
-    expect(summary.detail).toContain("3 slots of 15 minutes");
-    expect(summary.detail).toContain("today only");
-    expect(summary.detail).toContain("Belgium");
-  });
-
-  it("shows both derived prices next to the raw one", () => {
-    // The check against a bill, and the thing that makes picking a *total*
-    // price sensor by mistake visible rather than plausible.
-    const summary = summarizePrices(
-      readPricesFrom(
-        configured,
-        entityState("2026-08-18T22:00:00.000Z", [0.1821]),
-        Date.parse("2026-08-18T22:05:00.000Z"),
-      ),
-    );
-
-    expect(summary.spot).toBe("0.1821 EUR/kWh");
-    expect(summary.consumption).toBe("0.3317 EUR/kWh");
-    expect(summary.production).toBe("0.1635 EUR/kWh");
-  });
-
-  it("reports why nothing was found instead of an empty summary", () => {
-    const summary = summarizePrices(readPricesFrom(configured, undefined));
-
-    expect(summary.ok).toBe(false);
-    expect(summary.detail).toMatch(/could not be reached/);
+it("deduplicates requests, expires slots independently, and reports missing coverage", async () => {
+  const date = "2026-11-25T10:00:00Z";
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(date));
+  const fetcher = vi.fn(async (url: URL) =>
+    Response.json(
+      url.hostname === "api.energy-charts.info"
+        ? published([date], [200])
+        : { prices: [{ startsAt: date, total: 0.2 }], knownUntil: date },
+    ),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await Promise.all([
+    refreshPrices(config),
+    refreshPrices(config),
+    refreshPrices(config),
+  ]);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(cachedPrices(config).now?.spotPerKwh).toBe(0.2);
+  expect(cachedPrices(config, Date.parse(date) + 900_000)).toMatchObject({
+    now: null,
+    error: expect.stringContaining("No verified published price"),
   });
 });

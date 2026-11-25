@@ -47,7 +47,12 @@ import {
   startHaLive,
   stopHaLive,
 } from "../../app/lib/ha-live.server";
-import { DEFAULT_PRICE_CONFIG } from "../../app/lib/prices";
+import { cachedPrices } from "../../app/lib/price-source.server";
+import {
+  DEFAULT_PRICE_CONFIG,
+  parsePriceFormulas,
+  priceSlot,
+} from "../../app/lib/prices";
 import { savePriceConfig } from "../../app/lib/prices.server";
 import {
   addPvEntity,
@@ -56,6 +61,13 @@ import {
 } from "../../app/lib/pv-entities.server";
 import { REASSERT_MS } from "../../app/lib/pv-limits.server";
 import { defaultStates, startHaMock } from "../ha-mock.js";
+
+vi.mock("../../app/lib/price-source.server", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../app/lib/price-source.server")
+  >()),
+  cachedPrices: vi.fn(),
+}));
 
 let ha: Awaited<ReturnType<typeof startHaMock>>;
 let dataDir: string;
@@ -94,8 +106,8 @@ const PV_ARRAY = {
  * contract applied, not the exchange price.
  */
 const PRICES = (productionFormula: string) => ({
-  source: "home-assistant" as const,
-  forecastEntityId: "sensor.energi_epex_spot",
+  source: "epex-predictor" as const,
+  region: "BE" as const,
   consumptionFormula: "price",
   productionFormula,
 });
@@ -187,6 +199,16 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  vi.mocked(cachedPrices).mockImplementation((config) => ({
+    now:
+      config.source === "none"
+        ? null
+        : priceSlot(
+            { start: "", end: "", spotPerKwh: 0.2 },
+            parsePriceFormulas(config),
+          ),
+    error: null,
+  }));
   process.env.SUPERVISOR_API = ha.apiUrl;
   // Unreachable unless a case asks for the subscription: the loop's REST path
   // is what most of these are about, and a socket nobody wanted would only add
@@ -792,4 +814,33 @@ describe("what it writes to diagnostics", () => {
       new Set(["pv-curtailment"]),
     );
   });
+});
+
+it("switches to the new price interval without a meter event", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-25T12:14:55Z"));
+  const boundary = Date.parse("2026-11-25T12:15:00Z");
+  await curtailing();
+  vi.mocked(cachedPrices).mockImplementation(() => ({
+    now: priceSlot(
+      { start: "", end: "", spotPerKwh: Date.now() < boundary ? -0.1 : 0.1 },
+      parsePriceFormulas(PRICES("price")),
+    ),
+    error: null,
+  }));
+
+  await syncControlLoop();
+  await pendingControlTick();
+  expect(pvLimitEvents().at(-1)).toEqual([
+    "helper_pv_curtail_south_roof_pv_limit",
+    42,
+    false,
+  ]);
+
+  await advance(5_000);
+  expect(pvLimitEvents().at(-1)).toEqual([
+    "helper_pv_curtail_south_roof_pv_limit",
+    100,
+    true,
+  ]);
 });

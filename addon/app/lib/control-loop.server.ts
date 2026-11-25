@@ -13,7 +13,7 @@ import { appendDiagnostic } from "./diagnostics.server";
 import { type Grid, isGridConfigured } from "./grid";
 import { readGrid } from "./grid.server";
 import { onHaChange } from "./ha-live.server";
-import { priceEntityIds, readPricesFrom } from "./price-source.server";
+import { cachedPrices, PRICE_SLOT_MS } from "./price-source.server";
 import type { PriceConfig } from "./prices";
 import { readPriceConfig } from "./prices.server";
 import { isCurtailable, type PvEntity, pvSlug } from "./pv-entities";
@@ -125,7 +125,7 @@ async function readTickConfig(): Promise<TickConfig> {
 
 /** Changes to these inputs can trigger another decision. */
 function controlReadingIds(config: TickConfig): string[] {
-  const { grid, batteries, pvEntities, prices, curtailment } = config;
+  const { grid, batteries, pvEntities, curtailment } = config;
 
   return [
     ...(isGridConfigured(grid) ? [grid.powerEntityId] : []),
@@ -139,10 +139,6 @@ function controlReadingIds(config: TickConfig): string[] {
     ...(curtailment.enabled
       ? [
           ...pvEntities.map((entity) => entity.powerEntityId),
-          // The price entity earns its place here: its state changes at every
-          // slot boundary, which is what makes "the price just went negative"
-          // provoke a tick with nothing anywhere polling a clock.
-          ...priceEntityIds(prices),
           // And the car sensor for the same reason: plugging one in is a change
           // in what the house can absorb, and it should provoke a tick rather
           // than waiting out an interval with the arrays still held down.
@@ -158,6 +154,7 @@ type Snapshots = {
   arrays: PvArraySnapshot[];
   gridConfigured: boolean;
   provenance: string;
+  priceError: string | null;
   /** What a kWh put on the grid earns right now, or null when unknown. */
   productionPricePerKwh: number | null;
   /**
@@ -192,10 +189,7 @@ async function readSnapshots(config: TickConfig): Promise<Snapshots> {
     }),
   );
 
-  // Built from the same `states` map as every other reading rather than from a
-  // read of its own, which is what keeps the price a decision was made on and
-  // the readings it was made against describing the same instant.
-  const priceRead = readPricesFrom(prices, states.get(prices.forecastEntityId));
+  const priceRead = cachedPrices(prices);
 
   return {
     gridConfigured,
@@ -217,7 +211,8 @@ async function readSnapshots(config: TickConfig): Promise<Snapshots> {
     carCharging: curtailment.carChargingEntityId
       ? toBoolean(stateOf(curtailment.carChargingEntityId))
       : null,
-    currency: priceRead.forecast?.currency ?? "EUR",
+    currency: "EUR",
+    priceError: priceRead.error,
     provenance: describeSource(readings),
     pvSlugs: new Map(
       pvEntities
@@ -346,6 +341,7 @@ async function tickCurtailment(
 
   const lines = [
     `${plan.summary} (${inputs.provenance})`,
+    ...(inputs.priceError ? [`! ${inputs.priceError}`] : []),
     ...plan.warnings.map((warning) => `! ${warning}`),
     ...plan.decisions.map((decision) => decision.message),
     ...(ignoring.length > 0
@@ -368,7 +364,8 @@ async function tickCurtailment(
   // same moment it gives up trying to fix it.
   log(
     "pv-curtailment",
-    plan.warnings.length > 0 ||
+    inputs.priceError ||
+      plan.warnings.length > 0 ||
       troubled ||
       ignoring.length > 0 ||
       anyNotInForce(publishes)
@@ -527,6 +524,31 @@ async function refreshWatched(): Promise<void> {
  * gets swallowed, which would leave a decision standing on a reading nobody
  * looked at again.
  */
+let priceBoundary: ReturnType<typeof setTimeout> | undefined;
+
+function schedulePriceBoundary(): void {
+  priceBoundary = setTimeout(
+    () => {
+      requestPriceTick();
+      schedulePriceBoundary();
+    },
+    PRICE_SLOT_MS - (Date.now() % PRICE_SLOT_MS),
+  );
+  priceBoundary.unref();
+}
+
+export function requestPriceTick(): void {
+  if (!state.timer) return;
+  if (state.inFlight) {
+    const timer = state.timer;
+    void state.inFlight.then(() => {
+      if (state.timer === timer) requestTick();
+    });
+    return;
+  }
+  requestTick();
+}
+
 function requestTick(): void {
   const since =
     state.lastTickStartedAt === null
@@ -556,6 +578,8 @@ export function pendingControlTick(): Promise<void> {
 }
 
 export function stopControlLoop(): void {
+  clearTimeout(priceBoundary);
+  priceBoundary = undefined;
   state.unsubscribe?.();
   state.unsubscribe = null;
 
@@ -647,6 +671,7 @@ export async function syncControlLoop(): Promise<
   });
 
   state.timer = setInterval(startTick, IDLE_TICK_MS);
+  schedulePriceBoundary();
   // Nothing here should be what keeps Node alive; the HTTP server is. Without
   // this a test that forgets to stop the loop hangs the whole run.
   state.timer.unref?.();

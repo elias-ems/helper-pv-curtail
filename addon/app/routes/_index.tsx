@@ -1,12 +1,18 @@
 import { Link } from "react-router";
 import DiagnosticsBox from "../components/DiagnosticsBox";
+import ForecastChart from "../components/ForecastChart";
 import { hintStyle, pageTitleStyle } from "../components/form";
 import { curtailmentLoopStatus } from "../lib/control-loop.server";
 import { readDiagnostics } from "../lib/diagnostics.server";
+import { readHomePriceForecast } from "../lib/price-source.server";
 import type { Route } from "./+types/_index";
 
-export function loader() {
-  return { ...curtailmentLoopStatus(), entries: readDiagnostics() };
+export async function loader() {
+  return {
+    ...curtailmentLoopStatus(),
+    entries: readDiagnostics(),
+    forecast: await readHomePriceForecast(),
+  };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
@@ -19,6 +25,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           : "Curtailment is disabled."}{" "}
         <Link to="/settings">Configure curtailment</Link>
       </p>
+      <ForecastChart initial={loaderData.forecast} />
       <DiagnosticsBox initialEntries={loaderData.entries} defaultOpen />
     </main>
   );
