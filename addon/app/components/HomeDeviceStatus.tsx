@@ -22,10 +22,6 @@ export default function HomeDeviceStatus({
 
   return (
     <>
-      <p style={hintStyle}>
-        {running ? "Curtailment is enabled." : "Curtailment is disabled."}{" "}
-        <AppPageLink to="/settings">Configure curtailment</AppPageLink>
-      </p>
       {(failing || connectionError) && (
         <p role="status" style={hintStyle}>
           {failing
@@ -33,6 +29,36 @@ export default function HomeDeviceStatus({
             : "Could not read devices from Home Assistant."}
         </p>
       )}
+      <TitledCard
+        title="PV Curtailment"
+        actions={
+          <p style={hintStyle}>
+            {running ? "Curtailment is enabled." : "Curtailment is disabled."}{" "}
+            <AppPageLink to="/settings">Configure curtailment</AppPageLink>
+          </p>
+        }
+      >
+        {limits.length === 0 ? (
+          <p style={hintStyle}>No limits sent since the app started.</p>
+        ) : (
+          <ul className="home-status-list">
+            {limits.map((limit) => (
+              <li key={limit.seq}>
+                <div style={{ overflowWrap: "anywhere", minWidth: 0 }}>
+                  <strong>{limit.title}</strong>
+                  <p style={hintStyle}>
+                    <time dateTime={limit.sentAt}>{limit.timeLabel}</time>
+                  </p>
+                </div>
+                <span>
+                  {limit.released ? "Released" : "Limit sent"} · {limit.percent}
+                  % ({formatWatts(limit.watts)})
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </TitledCard>
       <TitledCard title="Linked devices">
         {devices.length === 0 ? (
           <p style={hintStyle}>No devices linked yet.</p>
@@ -58,28 +84,6 @@ export default function HomeDeviceStatus({
                     </p>
                   )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </TitledCard>
-      <TitledCard title="Recent limits">
-        {limits.length === 0 ? (
-          <p style={hintStyle}>No limits sent since the app started.</p>
-        ) : (
-          <ul className="home-status-list">
-            {limits.map((limit) => (
-              <li key={limit.seq}>
-                <div style={{ overflowWrap: "anywhere", minWidth: 0 }}>
-                  <strong>{limit.title}</strong>
-                  <p style={hintStyle}>
-                    <time dateTime={limit.sentAt}>{limit.timeLabel}</time>
-                  </p>
-                </div>
-                <span>
-                  {limit.released ? "Released" : "Limit sent"} · {limit.percent}
-                  % ({formatWatts(limit.watts)})
-                </span>
               </li>
             ))}
           </ul>

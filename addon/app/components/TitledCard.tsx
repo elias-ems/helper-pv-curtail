@@ -19,6 +19,7 @@ export default function TitledCard({
         style={{
           display: "flex",
           alignItems: "center",
+          flexWrap: "wrap",
           justifyContent: "space-between",
           gap: "0.75rem",
           minHeight: "2rem",
