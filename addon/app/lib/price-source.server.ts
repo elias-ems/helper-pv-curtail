@@ -1,7 +1,7 @@
 import { appendDiagnostic } from "./diagnostics.server";
 import { forecastWindow, marketTimeZone } from "./forecast-window.server";
+import { formatMoney } from "./formatters";
 import type { HomePriceForecast } from "./price-forecast";
-import { formatPricePerKwh } from "./price-format.server";
 import {
   isPriceConfigured,
   type PriceConfig,
@@ -302,9 +302,9 @@ export function summarizePrices(
   return {
     ok: now !== null,
     detail: read.error ?? "The current day-ahead price is verified.",
-    spot: now ? formatPricePerKwh(now.spotPerKwh, "EUR") : null,
-    consumption: now ? formatPricePerKwh(now.consumptionPerKwh, "EUR") : null,
-    production: now ? formatPricePerKwh(now.productionPerKwh, "EUR") : null,
+    spot: now ? formatMoney(now.spotPerKwh, "EUR/kWh") : null,
+    consumption: now ? formatMoney(now.consumptionPerKwh, "EUR/kWh") : null,
+    production: now ? formatMoney(now.productionPerKwh, "EUR/kWh") : null,
     spotPerKwh: now?.spotPerKwh ?? null,
     currency: "EUR",
   };

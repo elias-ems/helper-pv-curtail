@@ -160,6 +160,7 @@
  */
 
 import type { CurtailmentBand, CurtailmentConfig } from "./curtailment";
+import { formatMoney } from "./formatters";
 import type { PvControlMode } from "./pv-entities";
 
 export type PvArraySnapshot = {
@@ -345,17 +346,6 @@ function signed(watts: number): string {
 
 function magnitude(watts: number): string {
   return `${Math.abs(Math.round(watts))} W`;
-}
-
-/**
- * Formatted with a fixed number of decimals rather than `toLocaleString`, for
- * the usual reason in this add-on: these strings go into the
- * diagnostics log, which is compared against in tests and read by whoever is
- * diagnosing an installation, and neither wants the separators to depend on the
- * server's locale.
- */
-function price(value: number, currency: string): string {
-  return `${value.toFixed(4)} ${currency}/kWh`;
 }
 
 /**
@@ -550,6 +540,7 @@ function step(array: SteppedSnapshot, note = ""): PvArrayDecision {
 
 export function planCurtailment(input: CurtailInput): CurtailPlan {
   const { gridPowerW, arrays, productionPricePerKwh, currency, config } = input;
+  const priceUnit = `${currency}/kWh`;
   const { gridTargetW, deadbandW, minLimitPercent, priceThresholdPerKwh } =
     config;
 
@@ -671,8 +662,8 @@ export function planCurtailment(input: CurtailInput): CurtailPlan {
   if (abovePerKwh >= 0 && band === null) {
     return releaseAll(
       input,
-      `Injection at ${price(productionPricePerKwh, currency)} — ${config.strategy === "threshold" ? `at or above the ${price(priceThresholdPerKwh, currency)} threshold` : `clear of the ${price(priceThresholdPerKwh + lastBandEdge(config), currency)} top band`}, nothing to curtail.`,
-      `injection at ${price(productionPricePerKwh, currency)}`,
+      `Injection at ${formatMoney(productionPricePerKwh, priceUnit)} — ${config.strategy === "threshold" ? `at or above the ${formatMoney(priceThresholdPerKwh, priceUnit)} threshold` : `clear of the ${formatMoney(priceThresholdPerKwh + lastBandEdge(config), priceUnit)} top band`}, nothing to curtail.`,
+      `injection at ${formatMoney(productionPricePerKwh, priceUnit)}`,
     );
   }
 
@@ -680,8 +671,8 @@ export function planCurtailment(input: CurtailInput): CurtailPlan {
   // stop us.
   const priceClause =
     band === null
-      ? `injection at ${price(productionPricePerKwh, currency)}, below the ${price(priceThresholdPerKwh, currency)} threshold`
-      : `injection at ${price(productionPricePerKwh, currency)}, within ${price(band.abovePerKwh, currency)} of the ${price(priceThresholdPerKwh, currency)} threshold`;
+      ? `injection at ${formatMoney(productionPricePerKwh, priceUnit)}, below the ${formatMoney(priceThresholdPerKwh, priceUnit)} threshold`
+      : `injection at ${formatMoney(productionPricePerKwh, priceUnit)}, within ${formatMoney(band.abovePerKwh, priceUnit)} of the ${formatMoney(priceThresholdPerKwh, priceUnit)} threshold`;
 
   // The soft ceiling is decided here, before the grid is even looked at, and
   // that is the whole character of it: a fixed share of each inverter's rating

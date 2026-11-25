@@ -35,6 +35,7 @@ export default function DiagnosticsBox({
   label = "Diagnostics",
   subtitle,
   defaultOpen = false,
+  live = true,
   children,
 }: {
   origin?: DiagnosticsOrigin;
@@ -49,6 +50,7 @@ export default function DiagnosticsBox({
   /** Feature-specific context for the summary line, e.g. whether a loop is running. */
   subtitle?: string;
   defaultOpen?: boolean;
+  live?: boolean;
   /**
    * Feature-specific detail to show above the entries — the live path's health,
    * on the home page. It belongs *with* the log rather than in it: the same
@@ -68,7 +70,7 @@ export default function DiagnosticsBox({
   // the whole page down over a log nobody had to be able to read. See
   // `lib/json-fetch.ts`.
   const { data, failing } = usePolledJson<DiagnosticsData>(href, {
-    enabled: open,
+    enabled: open && live,
     intervalMs: POLL_INTERVAL,
     hiddenIntervalMs: HIDDEN_POLL_INTERVAL,
   });

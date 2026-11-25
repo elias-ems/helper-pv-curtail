@@ -61,3 +61,5 @@ npm run start:ingress
 ```
 
 The integration suite runs the production web server behind a mock Home Assistant ingress proxy. The manual stack prints the ingress URL and stores its settings in `addon/data/`.
+
+Append `/playground` to the app’s URL to preview the components with sample data.
