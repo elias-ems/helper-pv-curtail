@@ -46,7 +46,7 @@ export default function HomeDeviceStatus({
                     {device.kind} · {device.entityId}
                   </p>
                 </div>
-                <div>
+                <div style={{ marginInlineStart: "auto", textAlign: "end" }}>
                   <strong>{deviceReading(device)}</strong>
                   {device.kind === "PV array" && (
                     <p style={hintStyle}>
