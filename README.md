@@ -9,10 +9,18 @@ Elias-ems PV Curtailment uses the grid meter, PV power readings, and your export
 1. In Home Assistant, add `https://github.com/elias-ems/helper-pv-curtail` to the app store repositories.
 2. Install **Elias-ems PV Curtailment**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
 3. In **Settings**, choose a signed grid power sensor in watts (positive for import), then add each PV array's current power sensor. For arrays you want to limit, enable curtailment on the array and enter its inverter's rated AC output in watts.
-4. Choose a supported Home Assistant price forecast entity with `raw_today` or `data` attributes. Check the production formula against your export tariff. A threshold of zero curtails when exporting costs money.
+4. Select **EPEX Predictor**, choose your country or bidding zone, and enter your grid import and export formulas. Check the export formula against your tariff. A threshold of zero curtails when exporting costs money.
 5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Home** to check decisions and event delivery.
 
 If you migrate an array from elias-ems, disable its old curtailment first, then update the automation's event trigger to the new name shown in Settings. Renaming an array can change that name.
+
+## Price source
+
+The app requests quarter-hour prices in EUR/kWh from [EPEX Predictor](https://epexpredictor.batzill.com/docs). It checks each slot against published day-ahead prices from [Energy-Charts](https://api.energy-charts.info/) before applying your formulas. If publication cannot be verified for the current slot, the app releases PV limits and shows the reason in diagnostics.
+
+Prices refresh at startup and roughly hourly, with an earlier refresh when verified coverage runs out and a five-minute retry when coverage or a provider is unavailable. Slot changes trigger a decision independently of meter updates.
+
+If you previously used a Home Assistant price sensor, select EPEX Predictor and your zone after upgrading. Your saved import and export formulas are carried forward.
 
 ## Inverter automation
 

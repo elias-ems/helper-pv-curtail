@@ -369,8 +369,8 @@ describe("rejecting what isn't a forecast", () => {
 describe("applying the contract", () => {
   const config = {
     ...DEFAULT_PRICE_CONFIG,
-    source: "home-assistant" as const,
-    forecastEntityId: "sensor.energi_epex_spot",
+    source: "epex-predictor" as const,
+    region: "BE" as const,
     consumptionFormula: "((price * 1.02) + 0.1272) * 1.06",
     productionFormula: "max(price * 0.98 - 0.015, 0)",
   };
@@ -428,8 +428,8 @@ describe("the stored configuration", () => {
   }
 
   const validForm = {
-    source: "home-assistant",
-    forecastEntityId: "sensor.energi_epex_spot",
+    source: "epex-predictor",
+    region: "BE",
     consumptionFormula: "((price * 1.02) + 0.1272) * 1.06",
     productionFormula: "price * 0.98 - 0.015",
   };
@@ -441,13 +441,11 @@ describe("the stored configuration", () => {
     if (result.ok) expect(result.config).toEqual(validForm);
   });
 
-  it("requires an entity when the source is Home Assistant", () => {
-    const result = parsePriceConfig(
-      form({ ...validForm, forecastEntityId: "" }),
-    );
+  it("requires a bidding zone for EPEX Predictor", () => {
+    const result = parsePriceConfig(form({ ...validForm, region: "" }));
 
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.errors.forecastEntityId).toBeTruthy();
+    if (!result.ok) expect(result.errors.region).toBeTruthy();
   });
 
   it("rejects a formula that doesn't parse, before it reaches disk", () => {
@@ -463,7 +461,7 @@ describe("the stored configuration", () => {
     // The other fields are hidden in that state, so validating them would
     // reject a form nobody can see to fix.
     const result = parsePriceConfig(
-      form({ source: "none", forecastEntityId: "", consumptionFormula: "" }),
+      form({ source: "none", region: "", consumptionFormula: "" }),
     );
 
     expect(result).toMatchObject({ ok: true });
@@ -476,8 +474,8 @@ describe("the stored configuration", () => {
 
   it("falls back to the identity formula for a record written without one", () => {
     const config = normalizePriceConfig({
-      source: "home-assistant",
-      forecastEntityId: "sensor.prices",
+      source: "epex-predictor",
+      region: "BE",
     });
 
     expect(config.consumptionFormula).toBe("price");
@@ -489,8 +487,8 @@ describe("the stored configuration", () => {
     // Substituting the default here would hide the problem and report the raw
     // spot as a retail price. It is kept, and `parsePriceFormulas` reports it.
     const config = normalizePriceConfig({
-      source: "home-assistant",
-      forecastEntityId: "sensor.prices",
+      source: "epex-predictor",
+      region: "BE",
       consumptionFormula: "price * ",
     });
 

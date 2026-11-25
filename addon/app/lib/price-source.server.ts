@@ -1,213 +1,260 @@
-/**
- * The one door in front of wherever prices come from.
- *
- * Today there is one source — a Home Assistant entity — and the point of the
- * door is that nothing downstream knows that. A built-in energy-charts or
- * ENTSO-E client arrives as another branch in `readPricesFrom` and changes
- * nothing above it, the same way `states.server.ts` puts one door in front of
- * the live cache and REST.
- *
- * No transport of its own, deliberately. A price entity is read through
- * `readStates()` like every other entity, which means it arrives over the
- * WebSocket cache with no round trip, degrades to REST when that is down, and
- * carries the same provenance as everything else on the page.
- */
-import { formatPricePerKwh, formatSlotRange } from "./price-format.server";
+import { appendDiagnostic } from "./diagnostics.server";
+import { formatPricePerKwh } from "./price-format.server";
 import {
   isPriceConfigured,
   type PriceConfig,
-  type PriceForecast,
   type PricePoint,
+  type PriceRegion,
+  type PriceSlot,
   type PriceSourceSummary,
-  parsePriceForecast,
   parsePriceFormulas,
   priceSlot,
-  slotAt,
 } from "./prices";
 import { readPriceConfig } from "./prices.server";
-import { readStates, type StateRead } from "./states.server";
 
-export type PriceRead = {
-  configured: boolean;
-  /** Null when unconfigured, unreadable, or the entity carried no series. */
-  forecast: PriceForecast | null;
-  /** The slot covering now, with the contract applied. Null outside coverage. */
-  now: PricePoint | null;
-  /**
-   * Why there are no prices, when there are none. Null when all is well.
-   *
-   * One message rather than a state to branch on: every caller shows it and
-   * none acts on the difference between "no such entity" and "that entity isn't
-   * a price feed".
-   */
-  error: string | null;
-  /** How old the entity's state is, in epoch ms, or null when unknown. */
-  updatedAt: number | null;
+export const PRICE_SLOT_MS = 15 * 60_000;
+const REFRESH_MS = 60 * 60_000;
+const RETRY_MS = 5 * 60_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+
+type PriceSeries = {
+  slots: PriceSlot[];
+  reason: string | null;
 };
 
-/**
- * Whichever entities prices need, for the caller building the page's single
- * entity list.
- *
- * A list rather than the id, so that a second source needing two entities — or
- * none, once a built-in client exists — doesn't change the shape of this call.
- * Unconfigured returns nothing to read, which is what keeps an empty setting
- * from becoming a request to Home Assistant for the entity id `""`.
- */
-export function priceEntityIds(config: PriceConfig): string[] {
-  return isPriceConfigured(config) ? [config.forecastEntityId] : [];
+type Cache = PriceSeries & {
+  refreshAt: number;
+  pending?: Promise<void>;
+};
+
+const cache = new Map<PriceRegion, Cache>();
+let notifyRefresh: (() => void) | undefined;
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-/**
- * Build the price read from a state that has already been fetched.
- *
- * Split from `readPrices` so the dashboard can pass in the state it already
- * asked for. The alternative — a second `readStates` call from here — would
- * mean the card and the rest of the page could disagree about what Home
- * Assistant is saying, which is exactly the drift `dashboard.server.ts` builds
- * one entity list to avoid.
- */
-export function readPricesFrom(
-  config: PriceConfig,
-  read: StateRead | undefined,
-  now: number = Date.now(),
-): PriceRead {
-  if (!isPriceConfigured(config)) {
-    return {
-      configured: false,
-      forecast: null,
-      now: null,
-      error: null,
-      updatedAt: null,
-    };
+function instant(value: unknown): number {
+  return typeof value === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    ? Date.parse(value)
+    : Number.NaN;
+}
+
+export function verifyPredictorPrices(
+  prediction: unknown,
+  published: unknown,
+): PriceSeries {
+  const { prices, knownUntil } = record(prediction);
+  const cutoff = instant(knownUntil);
+  if (!Array.isArray(prices) || !Number.isFinite(cutoff)) {
+    throw new Error(
+      "EPEX Predictor returned invalid prices or an invalid knownUntil timestamp.",
+    );
   }
 
-  const empty = {
-    configured: true,
-    forecast: null,
-    now: null,
-    updatedAt: read?.updatedAt ?? null,
-  };
-
-  if (!read) {
-    return { ...empty, error: "Home Assistant could not be reached." };
-  }
-  if (!read.state) {
-    return {
-      ...empty,
-      error: `Home Assistant has no entity called ${config.forecastEntityId}.`,
-    };
+  const { unix_seconds: dates, price: values, unit } = record(published);
+  if (
+    unit !== "EUR / MWh" ||
+    !Array.isArray(dates) ||
+    !Array.isArray(values) ||
+    dates.length !== values.length
+  ) {
+    throw new Error("Energy-Charts returned invalid day-ahead prices.");
   }
 
-  const parsed = parsePriceForecast(read.state.attributes);
-  if (!parsed.ok) return { ...empty, error: parsed.error };
+  const reference = new Map<number, number>();
+  dates.forEach((date: unknown, index) => {
+    const value: unknown = values[index];
+    if (
+      typeof date === "number" &&
+      Number.isSafeInteger(date) &&
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      reference.set(date * 1000, value / 1000);
+    }
+  });
 
-  const slot = slotAt(parsed.forecast, now);
+  const verified = new Map<number, PriceSlot>();
+  for (const row of prices) {
+    const { startsAt, total } = record(row);
+    const start = instant(startsAt);
+    const market = reference.get(start);
+    // Predictor rounds EUR/kWh to four decimal places.
+    if (
+      start % PRICE_SLOT_MS !== 0 ||
+      start > cutoff ||
+      market === undefined ||
+      typeof total !== "number" ||
+      !Number.isFinite(total) ||
+      Math.abs(total - market) > 0.0000500001
+    )
+      continue;
+    verified.set(start, {
+      start: new Date(start).toISOString(),
+      end: new Date(start + PRICE_SLOT_MS).toISOString(),
+      spotPerKwh: market,
+    });
+  }
 
   return {
-    configured: true,
-    forecast: parsed.forecast,
+    slots: [...verified.values()].sort((a, b) =>
+      a.start.localeCompare(b.start),
+    ),
+    reason:
+      "No verified published price covers the current slot. EPEX Predictor may only have forecasts, or the published price is missing or differs.",
+  };
+}
+
+async function getJson(url: URL, provider: string): Promise<unknown> {
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      `${provider} price refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function fetchPrices(
+  region: PriceRegion,
+  now: number,
+): Promise<PriceSeries> {
+  const start = Math.floor(now / PRICE_SLOT_MS) * PRICE_SLOT_MS;
+  const predictor = new URL(
+    process.env.EPEX_PREDICTOR_URL ??
+      "https://epexpredictor.batzill.com/prices",
+  );
+  predictor.search = new URLSearchParams({
+    region,
+    unit: "EUR_PER_KWH",
+    timezone: "UTC",
+    startTs: new Date(start).toISOString(),
+    hours: "36",
+  }).toString();
+
+  const market = new URL(
+    process.env.PUBLISHED_PRICES_URL ?? "https://api.energy-charts.info/price",
+  );
+  market.search = new URLSearchParams({
+    bzn: region === "DE" ? "DE-LU" : region,
+    start: String(start / 1000),
+    end: String(start / 1000 + 36 * 3600),
+  }).toString();
+
+  const [predicted, published] = await Promise.all([
+    getJson(predictor, "EPEX Predictor"),
+    getJson(market, "Energy-Charts"),
+  ]);
+  return verifyPredictorPrices(predicted, published);
+}
+
+function currentSlot(slots: PriceSlot[], now: number): PriceSlot | undefined {
+  return slots.find(
+    ({ start, end }) => Date.parse(start) <= now && now < Date.parse(end),
+  );
+}
+
+export function cachedPrices(
+  config: PriceConfig,
+  now = Date.now(),
+): {
+  now: PricePoint | null;
+  error: string | null;
+} {
+  if (!isPriceConfigured(config))
+    return {
+      now: null,
+      error: "Select EPEX Predictor and a bidding zone in Settings.",
+    };
+  const entry = config.region ? cache.get(config.region) : undefined;
+  const slot = currentSlot(entry?.slots ?? [], now);
+  return {
     now: slot ? priceSlot(slot, parsePriceFormulas(config)) : null,
-    // Not an error: a forecast that hasn't reached the current instant is what
-    // a stale entity looks like, and the card says so with the coverage it does
-    // have rather than with a failure.
     error: slot
       ? null
-      : "That entity's prices don't cover right now — it may not have refreshed.",
-    updatedAt: read.updatedAt,
+      : (entry?.reason ?? "Waiting for verified EPEX Predictor prices."),
   };
 }
 
-/**
- * Read prices on their own — the settings page, which needs to say what it
- * found the moment an entity is picked, and has no dashboard read to borrow.
- *
- * Returns the configuration alongside the read because the caller needs both
- * and this already had to load it; asking the file twice would be two answers
- * to one question with a window in between for them to differ.
- */
-export async function readPrices(): Promise<{
-  config: PriceConfig;
-  read: PriceRead;
-}> {
+export async function refreshPrices(config: PriceConfig): Promise<void> {
+  if (!isPriceConfigured(config) || !config.region) return;
+  const region = config.region;
+  const entry = cache.get(region) ?? { slots: [], reason: null, refreshAt: 0 };
+  cache.set(region, entry);
+  if (entry.pending) return entry.pending;
+  const now = Date.now();
+  if (now < entry.refreshAt) return;
+
+  entry.pending = (async () => {
+    try {
+      const { slots, reason } = await fetchPrices(region, now);
+      entry.slots = slots;
+      entry.reason = reason;
+      const finished = Date.now();
+      let coverageEnd = Math.floor(finished / PRICE_SLOT_MS) * PRICE_SLOT_MS;
+      for (const slot of slots) {
+        if (Date.parse(slot.start) === coverageEnd)
+          coverageEnd += PRICE_SLOT_MS;
+      }
+      entry.refreshAt = Math.min(
+        finished + REFRESH_MS,
+        Math.max(finished + RETRY_MS, coverageEnd),
+      );
+    } catch (error) {
+      entry.reason = error instanceof Error ? error.message : String(error);
+      entry.refreshAt = Date.now() + RETRY_MS;
+      appendDiagnostic("prices", "warn", entry.reason);
+    }
+  })();
+  try {
+    await entry.pending;
+  } finally {
+    entry.pending = undefined;
+    notifyRefresh?.();
+  }
+}
+
+export function startPriceRefresh(onRefresh: () => void): void {
+  notifyRefresh = onRefresh;
+  const poll = async () => {
+    try {
+      await refreshPrices(await readPriceConfig());
+    } catch (error) {
+      appendDiagnostic(
+        "prices",
+        "warn",
+        `Could not read the price settings: ${String(error)}`,
+      );
+    }
+  };
+  void poll();
+  setInterval(poll, 60_000).unref();
+}
+
+export async function readPrices() {
   const config = await readPriceConfig();
-  const ids = priceEntityIds(config);
-
-  if (ids.length === 0) {
-    return { config, read: readPricesFrom(config, undefined) };
-  }
-
-  const { states } = await readStates(ids);
-  return {
-    config,
-    read: readPricesFrom(config, states.get(config.forecastEntityId)),
-  };
+  await refreshPrices(config);
+  return { config, read: cachedPrices(config) };
 }
 
-const NOTHING = {
-  spot: null,
-  consumption: null,
-  production: null,
-  spotPerKwh: null,
-  currency: "EUR",
-};
-
-/**
- * Describe what was found at the configured entity.
- *
- * A price entity is a needle in a haystack of hundreds of sensors, and the
- * failure this guards against is picking a plausible neighbour — an EPEX Spot
- * integration publishes both a market price and a *total* price that already
- * includes markups, and pointing a markup formula at the second one
- * double-counts into a number that still looks like a price.
- */
-export function summarizePrices(read: PriceRead): PriceSourceSummary {
-  if (!read.configured) {
-    return { ok: false, detail: "No source picked yet.", ...NOTHING };
-  }
-
-  if (!read.forecast) {
-    return {
-      ok: false,
-      detail: read.error ?? "No prices could be read from that entity.",
-      ...NOTHING,
-    };
-  }
-
-  const { forecast } = read;
-  const minutes = forecast.slots.length
-    ? Math.round(
-        (Date.parse(forecast.slots[0].end) -
-          Date.parse(forecast.slots[0].start)) /
-          60_000,
-      )
-    : 0;
-
-  const parts = [
-    `${forecast.slots.length} slots of ${minutes} minutes`,
-    forecast.slots.length
-      ? formatSlotRange(
-          forecast.slots[0].start,
-          forecast.slots.at(-1)?.end ?? "",
-        )
-      : null,
-    forecast.tomorrowIncluded ? "tomorrow included" : "today only",
-    forecast.region,
-  ].filter((part): part is string => Boolean(part));
-
+export function summarizePrices(
+  read: ReturnType<typeof cachedPrices>,
+): PriceSourceSummary {
+  const now = read.now;
   return {
-    ok: true,
-    detail: parts.join(" · "),
-    spot: read.now
-      ? formatPricePerKwh(read.now.spotPerKwh, forecast.currency)
-      : null,
-    consumption: read.now
-      ? formatPricePerKwh(read.now.consumptionPerKwh, forecast.currency)
-      : null,
-    production: read.now
-      ? formatPricePerKwh(read.now.productionPerKwh, forecast.currency)
-      : null,
-    spotPerKwh: read.now?.spotPerKwh ?? null,
-    currency: forecast.currency,
+    ok: now !== null,
+    detail: read.error ?? "The current day-ahead price is verified.",
+    spot: now ? formatPricePerKwh(now.spotPerKwh, "EUR") : null,
+    consumption: now ? formatPricePerKwh(now.consumptionPerKwh, "EUR") : null,
+    production: now ? formatPricePerKwh(now.productionPerKwh, "EUR") : null,
+    spotPerKwh: now?.spotPerKwh ?? null,
+    currency: "EUR",
   };
 }

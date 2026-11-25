@@ -16,38 +16,38 @@
 
 import { evaluateFormula, type Formula, parseFormula } from "./price-formula";
 
-/**
- * Where prices come from.
- *
- * A string enum with one real member rather than a boolean, for the same reason
- * `StrategyId` is one: adding a built-in energy-charts or ENTSO-E client later
- * should be one more entry here and one more branch in
- * `price-source.server.ts`, with nothing already on disk needing to change.
- */
-export type PriceSourceKind = "none" | "home-assistant";
+export type PriceSourceKind = "none" | "epex-predictor";
 
-export const PRICE_SOURCES: Array<{
-  id: PriceSourceKind;
-  label: string;
-  description: string;
-}> = [
-  {
-    id: "none",
-    label: "Not configured",
-    description: "No prices are imported.",
-  },
-  {
-    id: "home-assistant",
-    label: "Home Assistant entity",
-    description:
-      "Read the day-ahead prices off a sensor an integration already publishes — Energi Data Service, EPEX Spot, Nord Pool and friends. Nothing extra to install, and no API token to manage.",
-  },
-];
+export const PRICE_SOURCES = [
+  { id: "none", label: "Not configured" },
+  { id: "epex-predictor", label: "EPEX Predictor" },
+] as const;
+
+export const PRICE_REGIONS = {
+  AT: "Austria",
+  BE: "Belgium",
+  DE: "Germany and Luxembourg",
+  DK1: "Denmark West (DK1)",
+  DK2: "Denmark East (DK2)",
+  ES: "Spain",
+  FR: "France",
+  NL: "Netherlands",
+  PT: "Portugal",
+  SE1: "Sweden (SE1)",
+  SE2: "Sweden (SE2)",
+  SE3: "Sweden (SE3)",
+  SE4: "Sweden (SE4)",
+} as const;
+
+export type PriceRegion = keyof typeof PRICE_REGIONS;
+
+function isPriceRegion(value: unknown): value is PriceRegion {
+  return typeof value === "string" && Object.hasOwn(PRICE_REGIONS, value);
+}
 
 export type PriceConfig = {
   source: PriceSourceKind;
-  /** `home-assistant` only: the sensor carrying the forecast. */
-  forecastEntityId: string;
+  region: PriceRegion | "";
   /** Currency/kWh a kWh off the grid costs, as a formula over `price`. */
   consumptionFormula: string;
   /** Currency/kWh a kWh onto the grid earns, as a formula over `price`. */
@@ -63,7 +63,7 @@ export type PriceConfig = {
  */
 export const DEFAULT_PRICE_CONFIG: PriceConfig = {
   source: "none",
-  forecastEntityId: "",
+  region: "",
   consumptionFormula: "price",
   productionFormula: "price",
 };
@@ -79,7 +79,7 @@ export function normalizePriceConfig(
     source: isPriceSourceKind(stored?.source)
       ? stored.source
       : DEFAULT_PRICE_CONFIG.source,
-    forecastEntityId: stored?.forecastEntityId?.trim() ?? "",
+    region: isPriceRegion(stored?.region) ? stored.region : "",
     // Left exactly as stored, including a formula that no longer parses. What
     // to do about that is `applyPrices`'s decision, and it is deliberately not
     // "quietly substitute the default" — see there.
@@ -94,7 +94,7 @@ export function normalizePriceConfig(
 
 /** Whether prices can be read at all — a source picked, and something to read. */
 export function isPriceConfigured(config: PriceConfig): boolean {
-  return config.source === "home-assistant" && Boolean(config.forecastEntityId);
+  return config.source === "epex-predictor" && isPriceRegion(config.region);
 }
 
 export type PriceErrors = Partial<Record<keyof PriceConfig, string>>;
@@ -103,8 +103,7 @@ export function parsePriceConfig(
   formData: FormData,
 ): { ok: true; config: PriceConfig } | { ok: false; errors: PriceErrors } {
   const source = formData.get("source")?.toString() ?? "";
-  const forecastEntityId =
-    formData.get("forecastEntityId")?.toString().trim() ?? "";
+  const region = formData.get("region");
   const consumptionFormula =
     formData.get("consumptionFormula")?.toString().trim() ?? "";
   const productionFormula =
@@ -119,15 +118,17 @@ export function parsePriceConfig(
   if (source === "none") {
     return {
       ok: true,
-      config: { ...DEFAULT_PRICE_CONFIG, source, forecastEntityId },
+      config: normalizePriceConfig({
+        source,
+        consumptionFormula,
+        productionFormula,
+      }),
     };
   }
 
   const errors: PriceErrors = {};
 
-  if (!forecastEntityId) {
-    errors.forecastEntityId = "Pick the sensor carrying the day-ahead prices.";
-  }
+  if (!isPriceRegion(region)) errors.region = "Pick a country or bidding zone.";
 
   // Validated here, before anything reaches disk, so that a formula which first
   // fails at 03:00 is impossible. The read path still has to cope with one that
@@ -140,13 +141,14 @@ export function parsePriceConfig(
     if (!parsed.ok) errors[field] = parsed.error;
   }
 
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  if (!isPriceRegion(region) || Object.keys(errors).length > 0)
+    return { ok: false, errors };
 
   return {
     ok: true,
     config: {
       source,
-      forecastEntityId,
+      region,
       consumptionFormula,
       productionFormula,
     },

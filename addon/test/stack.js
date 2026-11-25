@@ -107,6 +107,7 @@ function stopApp(child, grace = 5_000) {
  * @param {string} [options.ingressToken]
  * @param {Array<object>} [options.haStates] Overrides the fixture states.
  * @param {Record<string, object>} [options.haCommandResults] Extra forecast WebSocket responses.
+ * @param {string} [options.priceApiUrl] Base URL of the two mock price APIs.
  */
 export async function startStack({
   dataDir = path.join(addonDir, "data"),
@@ -116,6 +117,7 @@ export async function startStack({
   ingressToken = DEFAULT_INGRESS_TOKEN,
   haStates,
   haCommandResults,
+  priceApiUrl,
 } = {}) {
   if (!existsSync(SERVER_BUILD)) {
     throw new Error(
@@ -142,6 +144,12 @@ export async function startStack({
       SUPERVISOR_WS: ha.wsUrl,
       SUPERVISOR_TOKEN: ha.token,
       DATA_DIR: dataDir,
+      ...(priceApiUrl
+        ? {
+            EPEX_PREDICTOR_URL: `${priceApiUrl}/predictor`,
+            PUBLISHED_PRICES_URL: `${priceApiUrl}/published`,
+          }
+        : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
