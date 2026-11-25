@@ -65,6 +65,19 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(home.status).toBe(200);
       const html = await home.text();
       expect(html).toContain("Curtailment is disabled.");
+      expect(html).not.toContain("nothing logged yet");
+      const nav = html.match(/<nav[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+      expect(nav.match(/>(Home|Diagnostics|Settings)<\/a>/g)).toEqual([
+        ">Home</a>",
+        ">Diagnostics</a>",
+        ">Settings</a>",
+      ]);
+      expect(nav).toContain(
+        `href="${new URL("diagnostics", stack.baseUrl).pathname}"`,
+      );
+      const diagnostics = await fetch(new URL("diagnostics", stack.baseUrl));
+      expect(diagnostics.status).toBe(200);
+      expect(await diagnostics.text()).toContain("nothing logged yet");
       const asset = html.match(/href="([^"]+\/assets\/[^"]+)"/)?.[1];
       expect(asset).toBeDefined();
       expect((await fetch(new URL(asset ?? "", stack.baseUrl))).ok).toBe(true);

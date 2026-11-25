@@ -10,7 +10,7 @@ Elias-ems PV Curtailment uses the grid meter, PV power readings, and your export
 2. Install **Elias-ems PV Curtailment**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
 3. In **Settings**, choose a signed grid power sensor in watts (positive for import), then add each PV array's current power sensor. For arrays you want to limit, enable curtailment on the array and enter its inverter's rated AC output in watts.
 4. Select **EPEX Predictor**, choose your country or bidding zone, and enter your grid import and export formulas. Check the export formula against your tariff. A threshold of zero curtails when exporting costs money.
-5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Home** to check decisions and event delivery.
+5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Diagnostics** to check decisions and event delivery.
 
 If you migrate an array from elias-ems, disable its old curtailment first, then update the automation's event trigger to the new name shown in Settings. Renaming an array can change that name.
 

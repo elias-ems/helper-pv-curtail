@@ -271,7 +271,7 @@ select {
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 520px) {
   .app-header-logo {
     display: none;
   }
@@ -282,6 +282,12 @@ select {
 
   .app-header-title {
     transform: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-header-title {
+    display: none;
   }
 }
 
