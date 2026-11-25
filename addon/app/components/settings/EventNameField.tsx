@@ -49,6 +49,7 @@ export default function EventNameField({
   eventType: (slug: string) => string;
 }) {
   const inputId = useId();
+  const messageId = `${inputId}-message`;
   const [title, setTitle] = useState(defaultValue);
 
   const slug = slugifyTitle(title);
@@ -63,6 +64,8 @@ export default function EventNameField({
       <input
         id={inputId}
         name="title"
+        aria-invalid={Boolean(error) || undefined}
+        aria-describedby={messageId}
         type="text"
         autoComplete="off"
         placeholder={placeholder}
@@ -72,9 +75,11 @@ export default function EventNameField({
       />
 
       {error ? (
-        <p style={errorStyle}>{error}</p>
+        <p id={messageId} style={errorStyle}>
+          {error}
+        </p>
       ) : (
-        <p style={hintStyle}>
+        <p id={messageId} style={hintStyle}>
           {slug ? (
             <>
               This {noun}'s {carries} goes out as <code>{eventType(slug)}</code>

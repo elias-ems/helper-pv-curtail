@@ -102,7 +102,11 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect((await fetch(new URL(asset ?? "", stack.baseUrl))).ok).toBe(true);
 
       const settings = new URL("settings", stack.baseUrl);
-      async function save(fields: Record<string, string>, json = false) {
+      async function save(
+        fields: Record<string, string>,
+        json = false,
+        status = 200,
+      ) {
         const response = await fetch(settings, {
           method: "POST",
           headers: {
@@ -111,14 +115,10 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
           },
           body: json ? JSON.stringify(fields) : new URLSearchParams(fields),
         });
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(status);
         return response.text();
       }
 
-      await save(
-        { intent: "grid-save", powerEntityId: "sensor.grid_power" },
-        true,
-      );
       await save({
         intent: "pv-add",
         title: "South roof",
@@ -187,6 +187,17 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
           curtailment[bandFieldName(index, field)] = String(band[field]);
         }
       });
+      expect(
+        await save({ ...curtailment, enabled: "on" }, false, 400),
+      ).toContain("Choose a grid power sensor before enabling PV curtailment.");
+      expect(await (await fetch(stack.baseUrl)).text()).toContain(
+        "Curtailment is disabled.",
+      );
+      await save(curtailment); // A missing prerequisite must never block disabling.
+      await save(
+        { intent: "grid-save", powerEntityId: "sensor.grid_power" },
+        true,
+      );
       await save({ ...curtailment, enabled: "on" });
 
       const eventType = "elias_ems_pv_curtail_south_roof_pv_limit";

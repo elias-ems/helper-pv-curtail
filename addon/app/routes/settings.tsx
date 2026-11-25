@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { data } from "react-router";
 import { pageTitleStyle } from "../components/form";
 import BatteriesSection from "../components/settings/BatteriesSection";
@@ -18,6 +19,7 @@ import {
 } from "../lib/control-loop.server";
 import {
   NO_CURTAILABLE_ARRAY_ERROR,
+  NO_GRID_ERROR,
   NO_PRICES_ERROR,
   parseCurtailmentConfig,
 } from "../lib/curtailment";
@@ -213,10 +215,18 @@ async function settingsAction({ request }: Route.ActionArgs) {
       // be cleared, after curtailment was switched on — and nothing stops a
       // form being posted directly.
       if (parsed.config.enabled) {
-        const [pvEntities, prices] = await Promise.all([
+        const [pvEntities, prices, grid] = await Promise.all([
           listPvEntities(),
           readPriceConfig(),
+          readGrid(),
         ]);
+        if (!isGridConfigured(grid)) {
+          return failed({
+            section: "curtailment",
+            recordId: null,
+            errors: { enabled: NO_GRID_ERROR },
+          });
+        }
         if (!pvEntities.some(isCurtailable)) {
           return failed({
             section: "curtailment",
@@ -274,9 +284,26 @@ export default function Settings({
 }: Route.ComponentProps) {
   const { pvEntities, grid, batteries, curtailment, prices, priceSummary } =
     loaderData;
+  const page = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!actionData || !("errors" in actionData)) return;
+    const invalid = page.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"]:not(:disabled), [data-settings-error]',
+    );
+    if (!invalid) return;
+    for (
+      let group = invalid.closest("details");
+      group;
+      group = group.parentElement?.closest("details") ?? null
+    ) {
+      group.open = true;
+    }
+    invalid.focus();
+  }, [actionData]);
 
   return (
-    <main className="page">
+    <main ref={page} className="page settings-page">
       <h1 style={pageTitleStyle}>Settings</h1>
 
       <div className="settings-layout" style={{ marginTop: "1.5rem" }}>
