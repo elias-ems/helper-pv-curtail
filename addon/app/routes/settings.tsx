@@ -279,17 +279,17 @@ export default function Settings({
     <main className="page">
       <h1 style={pageTitleStyle}>Settings</h1>
 
-      {/* The cards flow into two or three columns once the panel has room for
-          them; app.css owns where that happens and why. */}
-      <div className="settings-grid" style={{ marginTop: "1.5rem" }}>
-        <PvSection pvEntities={pvEntities} actionData={actionData} />
-        <GridSection grid={grid} actionData={actionData} />
-        <BatteriesSection batteries={batteries} actionData={actionData} />
-        <PricesSection
-          config={prices}
-          summary={priceSummary}
-          actionData={actionData}
-        />
+      <div className="settings-layout" style={{ marginTop: "1.5rem" }}>
+        <div className="settings-stack">
+          <PvSection pvEntities={pvEntities} actionData={actionData} />
+          <GridSection grid={grid} actionData={actionData} />
+          <BatteriesSection batteries={batteries} actionData={actionData} />
+          <PricesSection
+            config={prices}
+            summary={priceSummary}
+            actionData={actionData}
+          />
+        </div>
         <CurtailmentSection
           config={curtailment}
           ready={{
