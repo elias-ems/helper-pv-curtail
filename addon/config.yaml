@@ -1,6 +1,6 @@
 name: Elias-ems PV Curtailment
 description: Adjust PV generation limits when grid export prices are low.
-version: "0.1.4"
+version: "0.1.5"
 slug: helper-pv-curtail
 url: https://github.com/elias-ems/helper-pv-curtail
 arch:
