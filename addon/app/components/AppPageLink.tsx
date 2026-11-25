@@ -14,7 +14,12 @@ import {
   useNavigate,
 } from "react-router";
 
-type AppPage = "/" | "/settings";
+const appPages = ["/", "/diagnostics", "/settings"] as const;
+type AppPage = (typeof appPages)[number];
+
+function isAppPage(path: unknown): path is AppPage {
+  return appPages.some((page) => page === path);
+}
 
 const PanelPrefix = createContext<string | null>(null);
 
@@ -35,7 +40,7 @@ export function IngressNavigation({ children }: { children: ReactNode }) {
     if (
       typeof prefix !== "string" ||
       !/^\/(?:[\w-]+\/)*[\w-]+$/.test(prefix) ||
-      (path !== "" && path !== "/" && path !== "/settings")
+      (path !== "" && !isAppPage(path))
     )
       return;
 

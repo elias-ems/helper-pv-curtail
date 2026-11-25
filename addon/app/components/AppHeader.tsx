@@ -55,6 +55,9 @@ export default function AppHeader() {
         <AppPageLink to="/" end style={linkStyle}>
           Home
         </AppPageLink>
+        <AppPageLink to="/diagnostics" style={linkStyle}>
+          Diagnostics
+        </AppPageLink>
         <AppPageLink to="/settings" style={linkStyle}>
           Settings
         </AppPageLink>

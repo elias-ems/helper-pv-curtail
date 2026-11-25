@@ -8,6 +8,7 @@ import {
   DEFAULT_CURTAILMENT_CONFIG,
 } from "../../app/lib/curtailment";
 import { forecastWindow } from "../../app/lib/forecast-window.server";
+import type { HomeStatus } from "../../app/lib/home-status";
 import type { HomePriceForecast } from "../../app/lib/price-forecast";
 import { startStack } from "../stack.js";
 
@@ -65,6 +66,24 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(home.status).toBe(200);
       const html = await home.text();
       expect(html).toContain("Curtailment is disabled.");
+      expect(html.indexOf("Energy prices")).toBeLessThan(
+        html.indexOf("Curtailment is disabled."),
+      );
+      expect(html).toContain("No devices linked yet.");
+      expect(html).toContain("No limits sent since the app started.");
+      expect(html).not.toContain("nothing logged yet");
+      const nav = html.match(/<nav[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+      expect(nav.match(/>(Home|Diagnostics|Settings)<\/a>/g)).toEqual([
+        ">Home</a>",
+        ">Diagnostics</a>",
+        ">Settings</a>",
+      ]);
+      expect(nav).toContain(
+        `href="${new URL("diagnostics", stack.baseUrl).pathname}"`,
+      );
+      const diagnostics = await fetch(new URL("diagnostics", stack.baseUrl));
+      expect(diagnostics.status).toBe(200);
+      expect(await diagnostics.text()).toContain("nothing logged yet");
       const asset = html.match(/href="([^"]+\/assets\/[^"]+)"/)?.[1];
       expect(asset).toBeDefined();
       expect((await fetch(new URL(asset ?? "", stack.baseUrl))).ok).toBe(true);
@@ -170,6 +189,36 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
           }),
         );
 
+      const homeStatus = async () => {
+        const response = await fetch(new URL("api/home-status", stack.baseUrl));
+        expect(response.status).toBe(200);
+        return (await response.json()) as HomeStatus;
+      };
+      await expect.poll(homeStatus).toMatchObject({
+        running: true,
+        connectionError: null,
+        devices: [
+          { title: "Grid meter", reading: 842 },
+          { title: "South roof", reading: 1234.5, limitPercent: 42 },
+        ],
+        limits: [
+          {
+            title: "South roof",
+            percent: 42,
+            watts: 2100,
+            released: false,
+            sentAt: expect.any(String),
+          },
+        ],
+      });
+      stack.ha.setState("sensor.inverter_power", "unavailable");
+      await expect
+        .poll(async () => (await homeStatus()).devices[1].reading)
+        .toBeNull();
+      stack.ha.setState("sensor.inverter_power", "1234.5");
+      await expect
+        .poll(async () => (await homeStatus()).devices[1].reading)
+        .toBe(1234.5);
       expect(await save({ ...belgianPrices, region: "NL" })).toContain(
         "No verified published price covers the current slot",
       );
@@ -178,6 +227,14 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
         .toMatchObject({
           eventType,
           data: { limit_percent: 100, released: true },
+        });
+      await expect
+        .poll(async () => (await homeStatus()).limits[0])
+        .toMatchObject({
+          title: "South roof",
+          percent: 100,
+          watts: 5000,
+          released: true,
         });
       await save(belgianPrices);
       await expect

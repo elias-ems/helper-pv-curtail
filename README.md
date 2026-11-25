@@ -10,7 +10,7 @@ Elias-ems PV Curtailment uses the grid meter, PV power readings, and your export
 2. Install **Elias-ems PV Curtailment**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
 3. In **Settings**, choose a signed grid power sensor in watts (positive for import), then add each PV array's current power sensor. For arrays you want to limit, enable curtailment on the array and enter its inverter's rated AC output in watts.
 4. Select **EPEX Predictor**, choose your country or bidding zone, and enter your grid import and export formulas. Check the export formula against your tariff. A threshold of zero curtails when exporting costs money.
-5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Home** to check decisions and event delivery.
+5. Connect each curtailable array's event to a Home Assistant automation, then enable PV curtailment. Use **Diagnostics** to check decisions and event delivery.
 
 If you migrate an array from elias-ems, disable its old curtailment first, then update the automation's event trigger to the new name shown in Settings. Renaming an array can change that name.
 
@@ -21,6 +21,10 @@ The app requests quarter-hour prices in EUR/kWh from [EPEX Predictor](https://ep
 Prices refresh at startup and roughly hourly, with an earlier refresh when verified coverage runs out and a five-minute retry when coverage or a provider is unavailable. Slot changes trigger a decision independently of meter updates. Home shows today and tomorrow in one chart. Switch between market, export and import prices, and point to a bar to see its price. The chart distinguishes published prices from forecasts and remembers the selected price type in your browser.
 
 If you previously used a Home Assistant price sensor, select EPEX Predictor and your zone after upgrading. Your saved import and export formulas are carried forward.
+
+## Home dashboard
+
+Home shows the readings from linked grid, PV, battery, and EV sensors. Recent limits lists the last 20 events accepted by Home Assistant since the app started, including releases.
 
 ## Inverter automation
 
