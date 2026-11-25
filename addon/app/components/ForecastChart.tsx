@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { usePolledJson } from "../lib/json-fetch";
 import type { HomePriceForecast } from "../lib/price-forecast";
-import { cardStyle, headingStyle, hintStyle } from "./form";
+import { hintStyle } from "./form";
+import HomeCard from "./HomeCard";
 
 const priceTypes = {
   market: "Market",
@@ -20,7 +21,6 @@ export default function ForecastChart({
 }: {
   initial: HomePriceForecast;
 }) {
-  const heading = useId();
   const chartId = useId();
   const selectorId = useId();
   const [priceType, setPriceType] = useState<PriceType>("market");
@@ -73,22 +73,8 @@ export default function ForecastChart({
   const priceLabel = priceTypes[priceType];
 
   return (
-    <section
-      aria-labelledby={heading}
-      style={{ ...cardStyle, marginTop: "1rem" }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <h2 id={heading} style={headingStyle}>
-          Energy prices
-        </h2>
+    <HomeCard title="Energy prices">
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <fieldset className="price-types">
           <legend className="visually-hidden">Price type</legend>
           {(Object.keys(priceTypes) as PriceType[]).map((type) => (
@@ -284,6 +270,6 @@ export default function ForecastChart({
             : (issue ?? `No ${priceType} prices are available.`)}
         </p>
       )}
-    </section>
+    </HomeCard>
   );
 }

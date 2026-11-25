@@ -21,7 +21,9 @@
  * The cost is the same as for batteries too — no read-back — and the answer here
  * is different. See `notInForce`.
  */
+
 import { fireHaEvent } from "./ha.server";
+import type { SentLimit } from "./home-status";
 import { type PvControlMode, pvLimitEventType } from "./pv-entities";
 
 /**
@@ -179,6 +181,13 @@ const published = new Map<
   }
 >();
 
+const sentLimits: SentLimit[] = [];
+let nextSentLimit = 1;
+
+export function recentSentLimits(): SentLimit[] {
+  return sentLimits.slice();
+}
+
 /** Test-only, and used by a release: forget what every array was last told. */
 export function forgetPublishedLimits(): void {
   published.clear();
@@ -308,6 +317,7 @@ async function publishOne(command: PvLimitCommand): Promise<PvLimitPublish> {
 
   if (!reason) return { ...base, percent, status: "unchanged" };
 
+  const watts = Math.round((percent * command.ratedPowerW) / 100);
   try {
     await fireHaEvent(pvLimitEventType(command.slug), {
       slug: command.slug,
@@ -318,7 +328,7 @@ async function publishOne(command: PvLimitCommand): Promise<PvLimitPublish> {
       // percentage of nameplate and others an export setpoint in watts, and
       // neither automation should have to do arithmetic to get the other.
       limit_percent: percent,
-      limit_w: Math.round((percent * command.ratedPowerW) / 100),
+      limit_w: watts,
       rated_power_w: command.ratedPowerW,
       // Which kind of inverter this is for. An automation does not usually need
       // it — every event it receives is already a real transition — but it makes
@@ -342,6 +352,23 @@ async function publishOne(command: PvLimitCommand): Promise<PvLimitPublish> {
           ? (published.get(command.arrayId)?.reasserts ?? 0) + 1
           : 0,
     });
+    const sentAt = new Date();
+    sentLimits.unshift({
+      seq: nextSentLimit++,
+      sentAt: sentAt.toISOString(),
+      timeLabel: sentAt.toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+      title: command.title,
+      percent,
+      watts,
+      released: command.released,
+    });
+    if (sentLimits.length > 20) sentLimits.pop();
     return { ...base, percent, status: "published", reason };
   } catch (error) {
     // Deliberately not recorded: an event that never made it onto the bus must
