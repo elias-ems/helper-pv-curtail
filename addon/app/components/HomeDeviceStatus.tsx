@@ -1,22 +1,24 @@
+import { formatWatts } from "../lib/formatters";
 import type { HomeDevice, HomeStatus } from "../lib/home-status";
-import { usePolledJson } from "../lib/json-fetch";
+
 import AppPageLink from "./AppPageLink";
 import { hintStyle } from "./form";
-import HomeCard from "./HomeCard";
+import TitledCard from "./TitledCard";
 
 function deviceReading({ reading }: HomeDevice): string {
   if (reading === null) return "Unavailable";
   if (typeof reading === "boolean") return reading ? "Charging" : "Idle";
-  return `${Math.round(reading)} W`;
+  return formatWatts(reading);
 }
 
-export default function HomeDeviceStatus({ initial }: { initial: HomeStatus }) {
-  const { data, failing } = usePolledJson<HomeStatus>("/api/home-status", {
-    intervalMs: 5_000,
-    hiddenIntervalMs: 30_000,
-    leading: false,
-  });
-  const { running, devices, limits, connectionError } = data ?? initial;
+export default function HomeDeviceStatus({
+  status,
+  failing = false,
+}: {
+  status: HomeStatus;
+  failing?: boolean;
+}) {
+  const { running, devices, limits, connectionError } = status;
 
   return (
     <>
@@ -31,7 +33,7 @@ export default function HomeDeviceStatus({ initial }: { initial: HomeStatus }) {
             : "Could not read devices from Home Assistant."}
         </p>
       )}
-      <HomeCard title="Linked devices">
+      <TitledCard title="Linked devices">
         {devices.length === 0 ? (
           <p style={hintStyle}>No devices linked yet.</p>
         ) : (
@@ -60,8 +62,8 @@ export default function HomeDeviceStatus({ initial }: { initial: HomeStatus }) {
             ))}
           </ul>
         )}
-      </HomeCard>
-      <HomeCard title="Recent limits">
+      </TitledCard>
+      <TitledCard title="Recent limits">
         {limits.length === 0 ? (
           <p style={hintStyle}>No limits sent since the app started.</p>
         ) : (
@@ -76,13 +78,13 @@ export default function HomeDeviceStatus({ initial }: { initial: HomeStatus }) {
                 </div>
                 <span>
                   {limit.released ? "Released" : "Limit sent"} · {limit.percent}
-                  % ({limit.watts} W)
+                  % ({formatWatts(limit.watts)})
                 </span>
               </li>
             ))}
           </ul>
         )}
-      </HomeCard>
+      </TitledCard>
     </>
   );
 }

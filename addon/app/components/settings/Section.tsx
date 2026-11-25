@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { cardStyle, headingStyle, hintStyle } from "../form";
+import { hintStyle } from "../form";
+import TitledCard from "../TitledCard";
 
 type SectionProps = {
   id?: string;
@@ -22,20 +23,11 @@ export default function Section({
   children,
 }: SectionProps) {
   return (
-    // A card rather than a run of headings: the sections sit side by side
-    // once the panel is wide enough, and columns of text with nothing drawn
-    // around them read as one column that has lost its way.
-    <section id={id} style={cardStyle}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <h2 style={headingStyle}>{title}</h2>
-        {add && (
+    <TitledCard
+      id={id}
+      title={title}
+      actions={
+        add && (
           <button
             type="button"
             onClick={add.onToggle}
@@ -58,8 +50,9 @@ export default function Section({
           >
             +
           </button>
-        )}
-      </div>
+        )
+      }
+    >
       {description && (
         // A card can be wider than a paragraph wants to be, so the sentence
         // stops at a readable measure instead of running the card's width.
@@ -68,6 +61,6 @@ export default function Section({
         </p>
       )}
       {children}
-    </section>
+    </TitledCard>
   );
 }

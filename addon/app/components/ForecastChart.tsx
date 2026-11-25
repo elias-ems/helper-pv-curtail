@@ -1,8 +1,8 @@
 import { useEffect, useId, useState } from "react";
-import { usePolledJson } from "../lib/json-fetch";
+import { formatMoney } from "../lib/formatters";
 import type { HomePriceForecast } from "../lib/price-forecast";
 import { hintStyle } from "./form";
-import HomeCard from "./HomeCard";
+import TitledCard from "./TitledCard";
 
 const priceTypes = {
   market: "Market",
@@ -10,16 +10,19 @@ const priceTypes = {
   import: "Import",
 } as const;
 type PriceType = keyof typeof priceTypes;
-const storageKey = "elias-ems-pv-curtailment.price-type";
 
 function isPriceType(value: string | null): value is PriceType {
   return value !== null && Object.hasOwn(priceTypes, value);
 }
 
 export default function ForecastChart({
-  initial,
+  forecast,
+  failing = false,
+  storageKey,
 }: {
-  initial: HomePriceForecast;
+  forecast: HomePriceForecast;
+  failing?: boolean;
+  storageKey?: string;
 }) {
   const chartId = useId();
   const selectorId = useId();
@@ -29,17 +32,19 @@ export default function ForecastChart({
   const [keyboardSlot, setKeyboardSlot] = useState<number>();
 
   useEffect(() => {
+    if (!storageKey) return;
     try {
       const saved = localStorage.getItem(storageKey);
       if (isPriceType(saved)) setPriceType(saved);
     } catch {
       // Storage may be blocked in an embedded Home Assistant panel.
     }
-  }, []);
+  }, [storageKey]);
 
   function choosePriceType(value: PriceType) {
     setPriceType(value);
     setHovered(undefined);
+    if (!storageKey) return;
     try {
       localStorage.setItem(storageKey, value);
     } catch {
@@ -47,14 +52,7 @@ export default function ForecastChart({
     }
   }
 
-  const { data, failing } = usePolledJson<HomePriceForecast>(
-    "/api/price-forecast",
-    {
-      intervalMs: 60_000,
-      leading: false,
-    },
-  );
-  const { points, window, issue } = data ?? initial;
+  const { points, window, issue } = forecast;
   const bars = points.flatMap((point) => {
     const price = point[priceType];
     return price === null ? [] : [{ ...point, price }];
@@ -73,7 +71,7 @@ export default function ForecastChart({
   const priceLabel = priceTypes[priceType];
 
   return (
-    <HomeCard title="Energy prices">
+    <TitledCard title="Energy prices">
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <fieldset className="price-types">
           <legend className="visually-hidden">Price type</legend>
@@ -113,8 +111,8 @@ export default function ForecastChart({
                 paddingTop: "1.5rem",
               }}
             >
-              <span>{high.toFixed(3)}</span>
-              {low !== high && <span>{low.toFixed(3)}</span>}
+              <span>{formatMoney(high)}</span>
+              {low !== high && <span>{formatMoney(low)}</span>}
             </div>
             <div>
               <div
@@ -190,7 +188,7 @@ export default function ForecastChart({
                     type="button"
                     className="price-chart-slot"
                     tabIndex={tabStop?.start === bar.start ? 0 : -1}
-                    aria-label={`${bar.label}, ${bar.price.toFixed(4)} EUR/kWh, ${bar.verified ? "Published" : "Forecast"}`}
+                    aria-label={`${bar.label}, ${formatMoney(bar.price, "EUR/kWh")}, ${bar.verified ? "Published" : "Forecast"}`}
                     style={{
                       left: `${x(bar.start)}%`,
                       width: `${x(bar.end) - x(bar.start)}%`,
@@ -228,7 +226,7 @@ export default function ForecastChart({
                     }}
                   >
                     <span>{active.label}</span>
-                    <strong>{active.price.toFixed(4)} EUR/kWh</strong>
+                    <strong>{formatMoney(active.price, "EUR/kWh")}</strong>
                     <span>{active.verified ? "Published" : "Forecast"}</span>
                   </div>
                 )}
@@ -270,6 +268,6 @@ export default function ForecastChart({
             : (issue ?? `No ${priceType} prices are available.`)}
         </p>
       )}
-    </HomeCard>
+    </TitledCard>
   );
 }

@@ -81,6 +81,13 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(nav).toContain(
         `href="${new URL("diagnostics", stack.baseUrl).pathname}"`,
       );
+      expect(nav).not.toContain("playground");
+      const playground = await fetch(new URL("playground", stack.baseUrl));
+      expect(playground.status).toBe(200);
+      const examples = await playground.text();
+      expect(examples).toContain("Component playground");
+      expect(examples).toContain("0.118 EUR/kWh");
+      expect(examples).toContain("Released");
       const diagnostics = await fetch(new URL("diagnostics", stack.baseUrl));
       expect(diagnostics.status).toBe(200);
       expect(await diagnostics.text()).toContain("nothing logged yet");
@@ -126,7 +133,7 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       );
       const persisted = await (await fetch(settings)).text();
       expect(persisted).toContain('value="BE" selected=""');
-      expect(persisted).toContain("-9.8000 EUR/kWh");
+      expect(persisted).toContain("-9.800 EUR/kWh");
 
       const forecast = (await (
         await fetch(new URL("api/price-forecast", stack.baseUrl))

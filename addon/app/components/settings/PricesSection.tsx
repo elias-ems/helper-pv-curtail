@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Form, useNavigation } from "react-router";
+import { formatMoney } from "../../lib/formatters";
 import { applyFormula } from "../../lib/price-formula";
 import {
   PRICE_REGIONS,
@@ -52,7 +53,7 @@ function FormulaPreview({
   return (
     <p style={result.ok ? hintStyle : errorStyle}>
       {result.ok
-        ? `${spotPerKwh.toFixed(4)} → ${result.value.toFixed(4)} ${currency}/kWh`
+        ? `${formatMoney(spotPerKwh)} → ${formatMoney(result.value, `${currency}/kWh`)}`
         : result.error}
     </p>
   );

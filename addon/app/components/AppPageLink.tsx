@@ -14,7 +14,7 @@ import {
   useNavigate,
 } from "react-router";
 
-const appPages = ["/", "/diagnostics", "/settings"] as const;
+const appPages = ["/", "/diagnostics", "/settings", "/playground"] as const;
 type AppPage = (typeof appPages)[number];
 
 function isAppPage(path: unknown): path is AppPage {
