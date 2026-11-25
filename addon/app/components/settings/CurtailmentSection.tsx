@@ -1,5 +1,5 @@
-import { useEffect, useId, useState } from "react";
-import { Form, useNavigation } from "react-router";
+import { useId, useState } from "react";
+import { useNavigation } from "react-router";
 import type { CurtailmentConfig } from "../../lib/curtailment";
 import {
   bandFieldName,
@@ -26,6 +26,7 @@ import {
   labelStyle,
 } from "../form";
 import Section from "./Section";
+import TrackedSettingsForm from "./TrackedSettingsForm";
 
 export default function CurtailmentSection({
   config,
@@ -45,12 +46,7 @@ export default function CurtailmentSection({
   const enabledId = useId();
   const strategyId = useId();
   const requirementsId = useId();
-  const [dirty, setDirty] = useState(false);
   const saved = succeededFor(actionData, "curtailment");
-
-  useEffect(() => {
-    if (succeededFor(actionData, "curtailment")) setDirty(false);
-  }, [actionData]);
 
   // Held in state so the band rows and the strategy description can follow the
   // selection without a round trip.
@@ -84,10 +80,29 @@ export default function CurtailmentSection({
       title="PV curtailment"
       description="When enabled, the arrays are held back to roughly what the house and its battery can absorb while a kWh put on the grid earns less than the threshold below. Everything else generates freely."
     >
-      <Form
+      <TrackedSettingsForm
         method="post"
         style={{ ...formStyle, marginTop: "1rem" }}
-        onChange={() => setDirty(true)}
+        savedAction={saved ? actionData : undefined}
+        actions={(changed) => (
+          <>
+            {(changed || isSaving) && (
+              <div className="settings-save settings-save-dirty">
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving…" : "Save PV curtailment"}
+                </button>
+                {!isSaving && <span style={hintStyle}>Unsaved changes</span>}
+              </div>
+            )}
+            <span role="status" style={hintStyle}>
+              {saved && !changed && !isSaving ? "Saved" : ""}
+            </span>
+          </>
+        )}
         onInvalidCapture={(event) => {
           if (event.target instanceof HTMLElement) {
             const group = event.target.closest("details");
@@ -317,9 +332,6 @@ export default function CurtailmentSection({
               label="A car wants to charge (binary sensor)"
               placeholder="e.g. binary_sensor.evcc_charging"
               defaultValue={config.carChargingEntityId}
-              onValueChange={(value) => {
-                if (value !== config.carChargingEntityId) setDirty(true);
-              }}
               error={errors.carChargingEntityId}
               hint="Choose a sensor that is on while a connected car still wants charge. Leave it blank if you have no EV charger."
             />
@@ -337,20 +349,7 @@ export default function CurtailmentSection({
             />
           </div>
         </details>
-
-        <div
-          className={
-            dirty ? "settings-save settings-save-dirty" : "settings-save"
-          }
-        >
-          <button className="primary-button" type="submit" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save PV curtailment"}
-          </button>
-          <span role="status" style={hintStyle}>
-            {isSaving ? "" : dirty ? "Unsaved changes" : saved ? "Saved" : ""}
-          </span>
-        </div>
-      </Form>
+      </TrackedSettingsForm>
     </Section>
   );
 }
