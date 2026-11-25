@@ -333,13 +333,14 @@ export async function readHomePriceForecast(
     const start = Date.parse(slot.start);
     if (start < window.start || start >= window.end) return [];
     const market = verified.get(slot.start);
-    const price = priceSlot(market ?? slot, formulas).productionPerKwh;
-    if (price === null) return [];
+    const prices = priceSlot(market ?? slot, formulas);
     return [
       {
         start,
         end: Date.parse(slot.end),
-        price,
+        market: prices.spotPerKwh,
+        import: prices.consumptionPerKwh,
+        export: prices.productionPerKwh,
         verified: market !== undefined,
         label: formatter.format(start),
       },
@@ -354,7 +355,7 @@ export async function readHomePriceForecast(
       (points.length
         ? null
         : region
-          ? "No export price forecast is available yet."
+          ? "No energy prices are available yet."
           : "Select EPEX Predictor and a bidding zone in Settings."),
   };
 }
