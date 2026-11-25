@@ -22,6 +22,10 @@ Prices refresh at startup and roughly hourly, with an earlier refresh when verif
 
 If you previously used a Home Assistant price sensor, select EPEX Predictor and your zone after upgrading. Your saved import and export formulas are carried forward.
 
+## Home dashboard
+
+Home shows the readings from linked grid, PV, battery, and EV sensors. Recent limits lists the last 20 events accepted by Home Assistant since the app started, including releases.
+
 ## Inverter automation
 
 The app emits a Home Assistant event for each array. Your automation translates it into the command supported by your inverter. This example uses an inverter entity that takes a percentage and accepts 100% to release the limit.
