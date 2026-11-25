@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Form, useNavigation } from "react-router";
 import { formStyle, hintStyle, linkButtonStyle, rowStyle } from "../form";
+import TrackedSettingsForm from "./TrackedSettingsForm";
 
 /**
  * The add / edit / remove mechanics shared by the PV and battery sections. Only
@@ -60,7 +61,26 @@ export default function EditableList<
           {records.map((record) => (
             <li key={record.id} style={rowStyle}>
               {editingId === record.id ? (
-                <Form method="post" style={formStyle}>
+                <TrackedSettingsForm
+                  method="post"
+                  style={formStyle}
+                  actions={(changed) => (
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      {(changed || savingId === record.id) && (
+                        <button
+                          className="primary-button"
+                          type="submit"
+                          disabled={savingId === record.id}
+                        >
+                          {savingId === record.id ? "Saving…" : "Save"}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => onEdit(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                >
                   <input
                     type="hidden"
                     name="intent"
@@ -68,19 +88,7 @@ export default function EditableList<
                   />
                   <input type="hidden" name="id" value={record.id} />
                   {renderFields(record)}
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      className="primary-button"
-                      type="submit"
-                      disabled={savingId === record.id}
-                    >
-                      {savingId === record.id ? "Saving…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => onEdit(null)}>
-                      Cancel
-                    </button>
-                  </div>
-                </Form>
+                </TrackedSettingsForm>
               ) : (
                 <div
                   style={{

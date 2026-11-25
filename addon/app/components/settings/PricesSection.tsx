@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { Form, useNavigation } from "react-router";
+import { useNavigation } from "react-router";
 import { formatMoney } from "../../lib/formatters";
 import { applyFormula } from "../../lib/price-formula";
 import {
@@ -9,7 +9,7 @@ import {
   type PriceSourceSummary,
 } from "../../lib/prices";
 import type { SettingsActionData } from "../../lib/settings-form";
-import { failureFor } from "../../lib/settings-form";
+import { failureFor, succeededFor } from "../../lib/settings-form";
 import {
   errorStyle,
   fieldStyle,
@@ -19,6 +19,7 @@ import {
   labelStyle,
 } from "../form";
 import Section from "./Section";
+import TrackedSettingsForm from "./TrackedSettingsForm";
 
 /**
  * The formula's result at the current price, worked out in the browser as it is
@@ -145,7 +146,26 @@ export default function PricesSection({
       title="Prices"
       description="Choose a price source and the tariff formulas for grid import and export."
     >
-      <Form method="post" style={{ ...formStyle, marginTop: "1rem" }}>
+      <TrackedSettingsForm
+        method="post"
+        style={{ ...formStyle, marginTop: "1rem" }}
+        savedAction={
+          succeededFor(actionData, "prices") ? actionData : undefined
+        }
+        actions={(changed) =>
+          (changed || isSaving) && (
+            <div>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving…" : "Save prices"}
+              </button>
+            </div>
+          )
+        }
+      >
         <input type="hidden" name="intent" value="prices-save" />
 
         <div style={fieldStyle}>
@@ -255,13 +275,7 @@ export default function PricesSection({
             />
           </>
         )}
-
-        <div>
-          <button className="primary-button" type="submit" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save prices"}
-          </button>
-        </div>
-      </Form>
+      </TrackedSettingsForm>
     </Section>
   );
 }
