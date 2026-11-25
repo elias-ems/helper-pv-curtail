@@ -18,7 +18,7 @@ If you migrate an array from elias-ems, disable its old curtailment first, then 
 
 The app requests quarter-hour prices in EUR/kWh from [EPEX Predictor](https://epexpredictor.batzill.com/docs). It checks each slot against published day-ahead prices from [Energy-Charts](https://api.energy-charts.info/) before applying your formulas. If publication cannot be verified for the current slot, the app releases PV limits and shows the reason in diagnostics.
 
-Prices refresh at startup and roughly hourly, with an earlier refresh when verified coverage runs out and a five-minute retry when coverage or a provider is unavailable. Slot changes trigger a decision independently of meter updates.
+Prices refresh at startup and roughly hourly, with an earlier refresh when verified coverage runs out and a five-minute retry when coverage or a provider is unavailable. Slot changes trigger a decision independently of meter updates. Home shows today and tomorrow in one grid export price chart, with unverified forecasts marked separately.
 
 If you previously used a Home Assistant price sensor, select EPEX Predictor and your zone after upgrading. Your saved import and export formulas are carried forward.
 

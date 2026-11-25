@@ -1,4 +1,6 @@
 import { appendDiagnostic } from "./diagnostics.server";
+import { forecastWindow, marketTimeZone } from "./forecast-window.server";
+import type { HomePriceForecast } from "./price-forecast";
 import { formatPricePerKwh } from "./price-format.server";
 import {
   isPriceConfigured,
@@ -19,6 +21,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 type PriceSeries = {
   slots: PriceSlot[];
+  forecast: PriceSlot[];
+  forecastIssue: string | null;
   reason: string | null;
 };
 
@@ -42,10 +46,7 @@ function instant(value: unknown): number {
     : Number.NaN;
 }
 
-export function verifyPredictorPrices(
-  prediction: unknown,
-  published: unknown,
-): PriceSeries {
+function parsePredictorPrices(prediction: unknown) {
   const { prices, knownUntil } = record(prediction);
   const cutoff = instant(knownUntil);
   if (!Array.isArray(prices) || !Number.isFinite(cutoff)) {
@@ -54,6 +55,44 @@ export function verifyPredictorPrices(
     );
   }
 
+  const forecast = new Map<number, PriceSlot>();
+  for (const row of prices) {
+    const { startsAt, total } = record(row);
+    const start = instant(startsAt);
+    if (
+      start % PRICE_SLOT_MS !== 0 ||
+      typeof total !== "number" ||
+      !Number.isFinite(total)
+    )
+      continue;
+    forecast.set(start, {
+      start: new Date(start).toISOString(),
+      end: new Date(start + PRICE_SLOT_MS).toISOString(),
+      spotPerKwh: total,
+    });
+  }
+
+  return {
+    cutoff,
+    forecast: [...forecast.values()].sort((a, b) =>
+      a.start.localeCompare(b.start),
+    ),
+  };
+}
+
+export function verifyPredictorPrices(
+  prediction: unknown,
+  published: unknown,
+): PriceSeries {
+  const { cutoff, forecast } = parsePredictorPrices(prediction);
+  return verifyPublishedPrices(forecast, cutoff, published);
+}
+
+function verifyPublishedPrices(
+  forecast: PriceSlot[],
+  cutoff: number,
+  published: unknown,
+): PriceSeries {
   const { unix_seconds: dates, price: values, unit } = record(published);
   if (
     unit !== "EUR / MWh" ||
@@ -77,32 +116,23 @@ export function verifyPredictorPrices(
     }
   });
 
-  const verified = new Map<number, PriceSlot>();
-  for (const row of prices) {
-    const { startsAt, total } = record(row);
-    const start = instant(startsAt);
+  const slots = forecast.flatMap((slot) => {
+    const start = Date.parse(slot.start);
     const market = reference.get(start);
     // Predictor rounds EUR/kWh to four decimal places.
     if (
-      start % PRICE_SLOT_MS !== 0 ||
       start > cutoff ||
       market === undefined ||
-      typeof total !== "number" ||
-      !Number.isFinite(total) ||
-      Math.abs(total - market) > 0.0000500001
+      Math.abs(slot.spotPerKwh - market) > 0.0000500001
     )
-      continue;
-    verified.set(start, {
-      start: new Date(start).toISOString(),
-      end: new Date(start + PRICE_SLOT_MS).toISOString(),
-      spotPerKwh: market,
-    });
-  }
+      return [];
+    return [{ ...slot, spotPerKwh: market }];
+  });
 
   return {
-    slots: [...verified.values()].sort((a, b) =>
-      a.start.localeCompare(b.start),
-    ),
+    slots,
+    forecast,
+    forecastIssue: null,
     reason:
       "No verified published price covers the current slot. EPEX Predictor may only have forecasts, or the published price is missing or differs.",
   };
@@ -126,7 +156,7 @@ async function fetchPrices(
   region: PriceRegion,
   now: number,
 ): Promise<PriceSeries> {
-  const start = Math.floor(now / PRICE_SLOT_MS) * PRICE_SLOT_MS;
+  const { start, end } = forecastWindow(now, marketTimeZone(region));
   const predictor = new URL(
     process.env.EPEX_PREDICTOR_URL ??
       "https://epexpredictor.batzill.com/prices",
@@ -136,7 +166,7 @@ async function fetchPrices(
     unit: "EUR_PER_KWH",
     timezone: "UTC",
     startTs: new Date(start).toISOString(),
-    hours: "36",
+    hours: String((end - start) / 3_600_000),
   }).toString();
 
   const market = new URL(
@@ -145,14 +175,22 @@ async function fetchPrices(
   market.search = new URLSearchParams({
     bzn: region === "DE" ? "DE-LU" : region,
     start: String(start / 1000),
-    end: String(start / 1000 + 36 * 3600),
+    end: String(end / 1000),
   }).toString();
 
-  const [predicted, published] = await Promise.all([
+  const [predicted, published] = await Promise.allSettled([
     getJson(predictor, "EPEX Predictor"),
     getJson(market, "Energy-Charts"),
   ]);
-  return verifyPredictorPrices(predicted, published);
+  if (predicted.status === "rejected") throw predicted.reason;
+  const { cutoff, forecast } = parsePredictorPrices(predicted.value);
+  try {
+    if (published.status === "rejected") throw published.reason;
+    return verifyPublishedPrices(forecast, cutoff, published.value);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { slots: [], reason, forecast, forecastIssue: reason };
+  }
 }
 
 function currentSlot(slots: PriceSlot[], now: number): PriceSlot | undefined {
@@ -186,7 +224,13 @@ export function cachedPrices(
 export async function refreshPrices(config: PriceConfig): Promise<void> {
   if (!isPriceConfigured(config) || !config.region) return;
   const region = config.region;
-  const entry = cache.get(region) ?? { slots: [], reason: null, refreshAt: 0 };
+  const entry = cache.get(region) ?? {
+    slots: [],
+    forecast: [],
+    forecastIssue: null,
+    reason: null,
+    refreshAt: 0,
+  };
   cache.set(region, entry);
   if (entry.pending) return entry.pending;
   const now = Date.now();
@@ -194,8 +238,13 @@ export async function refreshPrices(config: PriceConfig): Promise<void> {
 
   entry.pending = (async () => {
     try {
-      const { slots, reason } = await fetchPrices(region, now);
-      entry.slots = slots;
+      const { slots, forecast, reason, forecastIssue } = await fetchPrices(
+        region,
+        now,
+      );
+      entry.forecast = forecast;
+      entry.forecastIssue = forecastIssue;
+      if (!forecastIssue) entry.slots = slots;
       entry.reason = reason;
       const finished = Date.now();
       let coverageEnd = Math.floor(finished / PRICE_SLOT_MS) * PRICE_SLOT_MS;
@@ -205,10 +254,12 @@ export async function refreshPrices(config: PriceConfig): Promise<void> {
       }
       entry.refreshAt = Math.min(
         finished + REFRESH_MS,
+        forecastWindow(finished, marketTimeZone(region)).tomorrow,
         Math.max(finished + RETRY_MS, coverageEnd),
       );
     } catch (error) {
       entry.reason = error instanceof Error ? error.message : String(error);
+      entry.forecastIssue = entry.reason;
       entry.refreshAt = Date.now() + RETRY_MS;
       appendDiagnostic("prices", "warn", entry.reason);
     }
@@ -256,5 +307,54 @@ export function summarizePrices(
     production: now ? formatPricePerKwh(now.productionPerKwh, "EUR") : null,
     spotPerKwh: now?.spotPerKwh ?? null,
     currency: "EUR",
+  };
+}
+
+/** Forecasts are for display. The controller reads only verified slots. */
+export async function readHomePriceForecast(
+  now = Date.now(),
+): Promise<HomePriceForecast> {
+  const config = await readPriceConfig();
+  const region = config.source === "epex-predictor" ? config.region : "";
+  const timeZone = region ? marketTimeZone(region) : "Europe/Brussels";
+  const window = forecastWindow(now, timeZone);
+  const entry = region ? cache.get(region) : undefined;
+  const verified = new Map(entry?.slots.map((slot) => [slot.start, slot]));
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "shortOffset",
+  });
+  const formulas = parsePriceFormulas(config);
+
+  const points = (entry?.forecast ?? []).flatMap((slot) => {
+    const start = Date.parse(slot.start);
+    if (start < window.start || start >= window.end) return [];
+    const market = verified.get(slot.start);
+    const price = priceSlot(market ?? slot, formulas).productionPerKwh;
+    if (price === null) return [];
+    return [
+      {
+        start,
+        end: Date.parse(slot.end),
+        price,
+        verified: market !== undefined,
+        label: formatter.format(start),
+      },
+    ];
+  });
+
+  return {
+    window,
+    points,
+    issue:
+      entry?.forecastIssue ??
+      (points.length
+        ? null
+        : region
+          ? "No export price forecast is available yet."
+          : "Select EPEX Predictor and a bidding zone in Settings."),
   };
 }
