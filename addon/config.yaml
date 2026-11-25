@@ -1,6 +1,6 @@
-name: elias-ems pv curtail helper
+name: Elias-ems PV Curtailment
 description: Adjust PV generation limits when grid export prices are low.
-version: "0.1.4"
+version: "0.1.5"
 slug: helper-pv-curtail
 url: https://github.com/elias-ems/helper-pv-curtail
 arch:
@@ -10,6 +10,6 @@ init: true
 ingress: true
 ingress_port: 3000
 homeassistant_api: true
-panel_icon: mdi:solar-power
+panel_icon: mdi:lightning-bolt
 startup: application
 boot: auto

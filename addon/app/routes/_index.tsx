@@ -9,10 +9,10 @@ export function loader() {
   return { ...curtailmentLoopStatus(), entries: readDiagnostics() };
 }
 
-export default function Status({ loaderData }: Route.ComponentProps) {
+export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <main className="page">
-      <h1 style={pageTitleStyle}>PV curtailment</h1>
+      <h1 style={pageTitleStyle}>Home</h1>
       <p style={hintStyle}>
         {loaderData.running
           ? "Curtailment is enabled."

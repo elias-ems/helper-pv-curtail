@@ -23,9 +23,9 @@
   --brand-soft: #e4efff;
   --brand-deep-blue: #235991;
 
-  --color-bg: light-dark(var(--brand-paper), #0d192b);
+  --color-bg: light-dark(var(--brand-paper), var(--brand-ink));
   --color-surface: light-dark(#ffffff, #17283f);
-  --color-form: light-dark(var(--brand-soft), #1c2f48);
+  --color-form: light-dark(var(--brand-soft), #1d3e64);
   --color-surface-raised: light-dark(var(--brand-soft), #263f5e);
   --color-surface-active: light-dark(#d6e6fb, #345273);
   --color-text: light-dark(var(--brand-ink), var(--brand-paper));
@@ -84,7 +84,7 @@
     rgba(240, 180, 41, 0.13)
   );
 
-  --color-header-bg: var(--brand-ink);
+  --color-header-bg: light-dark(var(--brand-ink), #0d2441);
   --color-header-text: var(--brand-paper);
 
   --shadow-popover: light-dark(
@@ -236,24 +236,29 @@ select {
 
 .app-header-title {
   font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  transform: translateY(1px);
 }
 
 .app-header nav > a {
   padding-inline: 0.875rem;
 }
 
+@media (hover: hover) {
+  .app-header nav > a:hover {
+    background-color: color-mix(
+      in srgb,
+      var(--brand-cobalt) 24%,
+      var(--color-header-bg)
+    );
+  }
+}
+
 @media (max-width: 480px) {
   .app-header {
     padding-inline: 0.75rem;
     gap: 0.5rem;
-  }
-
-  .app-header-logo {
-    display: none;
-  }
-
-  .app-header-icon {
-    display: block;
   }
 
   .app-header-title,
@@ -263,6 +268,20 @@ select {
 
   .app-header nav > a {
     padding-inline: 0.5rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-header-logo {
+    display: none;
+  }
+
+  .app-header-icon {
+    display: block;
+  }
+
+  .app-header-title {
+    transform: none;
   }
 }
 
