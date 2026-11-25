@@ -117,21 +117,25 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
         expect.arrayContaining([
           expect.objectContaining({
             start: today,
-            price: -9.8,
+            market: 0.2,
+            import: 0.2,
+            export: -9.8,
             verified: true,
           }),
           expect.objectContaining({
             start: tomorrow,
-            price: -9.8,
+            market: 0.2,
+            import: 0.2,
+            export: -9.8,
             verified: false,
           }),
         ]),
       );
       const chart = await (await fetch(stack.baseUrl)).text();
       expect(chart).toContain(
-        "Grid export prices in EUR per kWh for today and tomorrow",
+        "Market prices in EUR per kWh for today and tomorrow",
       );
-      expect(chart).toContain("Unverified forecast");
+      expect(chart).toContain("Forecast");
 
       const curtailment: Record<string, string> = {
         intent: "curtailment-save",

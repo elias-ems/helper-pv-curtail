@@ -9,7 +9,9 @@ export type HomePriceForecast = {
   points: {
     start: number;
     end: number;
-    price: number;
+    market: number;
+    import: number | null;
+    export: number | null;
     verified: boolean;
     label: string;
   }[];

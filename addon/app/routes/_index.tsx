@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import AppPageLink from "../components/AppPageLink";
 import DiagnosticsBox from "../components/DiagnosticsBox";
 import ForecastChart from "../components/ForecastChart";
 import { hintStyle, pageTitleStyle } from "../components/form";
@@ -23,7 +23,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         {loaderData.running
           ? "Curtailment is enabled."
           : "Curtailment is disabled."}{" "}
-        <Link to="/settings">Configure curtailment</Link>
+        <AppPageLink to="/settings">Configure curtailment</AppPageLink>
       </p>
       <ForecastChart initial={loaderData.forecast} />
       <DiagnosticsBox initialEntries={loaderData.entries} defaultOpen />

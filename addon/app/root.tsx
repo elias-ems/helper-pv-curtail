@@ -11,6 +11,7 @@ import "./app.css";
 import type { Route } from "./+types/root";
 import brandIcon from "./assets/elias-ems-icon.svg?inline";
 import AppHeader from "./components/AppHeader";
+import { IngressNavigation } from "./components/AppPageLink";
 import { hintStyle } from "./components/form";
 
 /**
@@ -38,8 +39,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <Links />
       </head>
       <body>
-        <AppHeader />
-        {children}
+        <IngressNavigation>
+          <AppHeader />
+          {children}
+        </IngressNavigation>
         <ScrollRestoration />
         <Scripts />
       </body>
