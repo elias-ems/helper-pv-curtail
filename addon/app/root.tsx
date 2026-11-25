@@ -32,7 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
             parsed before the stylesheet loads, so the very first paint of the
             page canvas already matches the theme instead of flashing white. */}
         <meta name="color-scheme" content="light dark" />
-        <title>PV Curtail Helper · elias-ems</title>
+        <title>Elias-ems PV Curtailment</title>
         <link rel="icon" type="image/svg+xml" href={brandIcon} />
         <Meta />
         <Links />

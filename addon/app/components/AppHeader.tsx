@@ -49,11 +49,11 @@ export default function AppHeader() {
       <img className="app-header-logo" src={brandLogo} alt="elias-ems" />
       <img className="app-header-icon" src={brandIcon} alt="elias-ems" />
       <span className="app-header-title" style={titleStyle}>
-        PV Curtail Helper
+        PV Curtailment
       </span>
       <nav style={navStyle}>
         <NavLink to="/" end style={linkStyle}>
-          Status
+          Home
         </NavLink>
         <NavLink to="/settings" style={linkStyle}>
           Settings
