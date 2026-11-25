@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { NavLink } from "react-router";
 import brandLogo from "../assets/elias-ems-dark.svg?inline";
 import brandIcon from "../assets/elias-ems-icon.svg?inline";
+import AppPageLink from "./AppPageLink";
 
 const headerStyle: CSSProperties = {
   display: "flex",
@@ -52,12 +52,12 @@ export default function AppHeader() {
         PV Curtailment
       </span>
       <nav style={navStyle}>
-        <NavLink to="/" end style={linkStyle}>
+        <AppPageLink to="/" end style={linkStyle}>
           Home
-        </NavLink>
-        <NavLink to="/settings" style={linkStyle}>
+        </AppPageLink>
+        <AppPageLink to="/settings" style={linkStyle}>
           Settings
-        </NavLink>
+        </AppPageLink>
       </nav>
     </header>
   );
