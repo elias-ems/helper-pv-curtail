@@ -56,7 +56,7 @@ function command(overrides: Partial<PvLimitCommand> = {}): PvLimitCommand {
 /** Every limit event fired so far, as the payloads an automation would see. */
 function fired(): Array<Record<string, unknown>> {
   return ha.events
-    .filter((event) => event.eventType.startsWith("helper_pv_curtail_"))
+    .filter((event) => event.eventType.startsWith("elias_ems_pv_curtail_"))
     .map((event) => event.data as Record<string, unknown>);
 }
 
@@ -90,7 +90,7 @@ describe("publishPvLimits", () => {
 
     expect(publish).toMatchObject({ status: "published", percent: 40 });
     expect(ha.events.map((event) => event.eventType)).toEqual([
-      "helper_pv_curtail_south_roof_pv_limit",
+      "elias_ems_pv_curtail_south_roof_pv_limit",
     ]);
     expect(fired()).toEqual([
       {

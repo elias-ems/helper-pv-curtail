@@ -210,7 +210,7 @@ export function pvSlug(entity: Pick<PvEntity, "id" | "title">): string {
  * the house from one array's limit.
  */
 export function pvLimitEventType(slug: string): string {
-  return `helper_pv_curtail_${slug}_pv_limit`;
+  return `elias_ems_pv_curtail_${slug}_pv_limit`;
 }
 
 /**

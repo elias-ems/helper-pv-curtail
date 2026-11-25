@@ -40,6 +40,7 @@ export default function Field({
   step,
 }: FieldProps) {
   const inputId = useId();
+  const messageId = `${inputId}-message`;
 
   return (
     <div style={fieldStyle}>
@@ -49,6 +50,8 @@ export default function Field({
       <input
         id={inputId}
         name={name}
+        aria-invalid={Boolean(error) || undefined}
+        aria-describedby={error || hint ? messageId : undefined}
         type={type}
         autoComplete="off"
         placeholder={placeholder}
@@ -59,9 +62,15 @@ export default function Field({
         style={inputStyle(Boolean(error))}
       />
       {error ? (
-        <p style={errorStyle}>{error}</p>
+        <p id={messageId} style={errorStyle}>
+          {error}
+        </p>
       ) : (
-        hint && <p style={hintStyle}>{hint}</p>
+        hint && (
+          <p id={messageId} style={hintStyle}>
+            {hint}
+          </p>
+        )
       )}
     </div>
   );

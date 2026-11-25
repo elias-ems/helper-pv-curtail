@@ -76,6 +76,8 @@ function FormulaField({
   summary: PriceSourceSummary;
 }) {
   const inputId = useId();
+  const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
   const [formula, setFormula] = useState(defaultValue);
 
   return (
@@ -86,6 +88,8 @@ function FormulaField({
       <input
         id={inputId}
         name={name}
+        aria-invalid={Boolean(error) || undefined}
+        aria-describedby={error ? `${hintId} ${errorId}` : hintId}
         type="text"
         autoComplete="off"
         spellCheck={false}
@@ -93,9 +97,13 @@ function FormulaField({
         onChange={(event) => setFormula(event.target.value)}
         style={{ ...inputStyle(Boolean(error)), fontFamily: "monospace" }}
       />
-      <p style={hintStyle}>{hint}</p>
+      <p id={hintId} style={hintStyle}>
+        {hint}
+      </p>
       {error ? (
-        <p style={errorStyle}>{error}</p>
+        <p id={errorId} style={errorStyle}>
+          {error}
+        </p>
       ) : (
         <FormulaPreview
           formula={formula}
@@ -147,6 +155,8 @@ export default function PricesSection({
           <select
             id={sourceId}
             name="source"
+            aria-invalid={Boolean(errors.source) || undefined}
+            aria-describedby={errors.source ? `${sourceId}-error` : undefined}
             value={source}
             onChange={(event) =>
               setSource(event.target.value as PriceConfig["source"])
@@ -159,7 +169,11 @@ export default function PricesSection({
               </option>
             ))}
           </select>
-          {errors.source && <p style={errorStyle}>{errors.source}</p>}
+          {errors.source && (
+            <p id={`${sourceId}-error`} style={errorStyle}>
+              {errors.source}
+            </p>
+          )}
         </div>
 
         {source === "none" && (
@@ -186,6 +200,10 @@ export default function PricesSection({
               <select
                 id={regionId}
                 name="region"
+                aria-invalid={Boolean(errors.region) || undefined}
+                aria-describedby={
+                  errors.region ? `${regionId}-error` : undefined
+                }
                 value={region}
                 onChange={(event) => setRegion(event.target.value)}
                 style={inputStyle(Boolean(errors.region))}
@@ -197,7 +215,11 @@ export default function PricesSection({
                   </option>
                 ))}
               </select>
-              {errors.region && <p style={errorStyle}>{errors.region}</p>}
+              {errors.region && (
+                <p id={`${regionId}-error`} style={errorStyle}>
+                  {errors.region}
+                </p>
+              )}
             </div>
 
             {summaryIsCurrent && (
