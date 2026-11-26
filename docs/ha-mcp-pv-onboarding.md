@@ -1,24 +1,32 @@
-# PV onboarding through HA-MCP
+# Set up PV curtailment with HA-MCP
 
-Use a disposable Home Assistant OS install running this build and a mock inverter. In Home Assistant, create a template **Number** entity named `number.mock_inverter_limit`, or substitute a mock inverter's 0–100 number. Use a mock power sensor ID. Keep PV curtailment disabled for this check.
+Use [community HA-MCP](https://homeassistant-ai.github.io/ha-mcp/tools/) with the Home Assistant installation where you run Elias-ems PV Curtailment. Leave PV curtailment off while setting up the inverter.
 
-In Tools → Events, listen to `*` before starting and leave the listener open through the final read. Look for zero `elias_ems_pv_curtail_*_pv_limit` events and zero `call_service` events targeting the mock inverter. Preview returns an initially disabled automation for review. Apply saves to Elias-ems PV Curtailment Settings only. The example automation assumes that writing 100% releases the inverter.
+## Read, preview, and apply
 
-## Tool calls
+Use your PV power sensor, the inverter's rated AC output, and a write mode that matches how the inverter handles limit changes. The example uses a stepped inverter with a fixed 25% limit. Use your own limit for stepped mode and omit `stepLimitPercent` for modulating mode. The proposed automation uses a Home Assistant `number.*` entity that accepts a 0–100% generation limit and releases the limit at 100%.
 
-Call [community HA-MCP](https://homeassistant-ai.github.io/ha-mcp/tools/) through the test instance. Each line shows the tool name and arguments. Substitute the installed slug for `SLUG` and copy the revision and preview token from the preceding responses.
+Run the calls in order. Replace `SLUG` with the app slug from `ha_get_app`, `REV` with the revision from the settings read, and `TOKEN` with the preview token. Replace the example inverter values in both requests. For an existing array, include its `arrayId` in both requests and send only the fields you want to edit.
 
 ```text
 ha_get_app       {"source":"installed"}
 ha_manage_app    {"slug":"SLUG","path":"/api/v1/settings","method":"GET"}
 ha_manage_app    {"slug":"SLUG","path":"/api/v1/onboarding/pv-curtailment","method":"GET"}
-ha_manage_app    {"slug":"SLUG","path":"/api/v1/onboarding/pv-curtailment/preview","method":"POST","body":{"revision":"REV","limitEntityId":"number.mock_inverter_limit","fields":{"title":"Mock inverter","powerEntityId":"sensor.inverter_power","ratedPowerW":4000,"controlMode":"stepped","stepLimitPercent":25}}}
+ha_manage_app    {"slug":"SLUG","path":"/api/v1/onboarding/pv-curtailment/preview","method":"POST","body":{"revision":"REV","limitEntityId":"number.inverter_generation_limit","fields":{"title":"South roof","powerEntityId":"sensor.inverter_power","ratedPowerW":4000,"controlMode":"stepped","stepLimitPercent":25}}}
 ha_manage_app    {"slug":"SLUG","path":"/api/v1/settings","method":"GET"}
-ha_manage_app    {"slug":"SLUG","path":"/api/v1/onboarding/pv-curtailment/apply","method":"POST","body":{"revision":"REV","previewToken":"TOKEN","limitEntityId":"number.mock_inverter_limit","fields":{"title":"Mock inverter","powerEntityId":"sensor.inverter_power","ratedPowerW":4000,"controlMode":"stepped","stepLimitPercent":25}}}
+ha_manage_app    {"slug":"SLUG","path":"/api/v1/onboarding/pv-curtailment/apply","method":"POST","body":{"revision":"REV","previewToken":"TOKEN","limitEntityId":"number.inverter_generation_limit","fields":{"title":"South roof","powerEntityId":"sensor.inverter_power","ratedPowerW":4000,"controlMode":"stepped","stepLimitPercent":25}}}
 ha_manage_app    {"slug":"SLUG","path":"/api/v1/settings","method":"GET"}
 ```
 
-After preview, Settings should have the same revision and values as before. Review the diff and the automation listening for `elias_ems_pv_curtail_mock_inverter_pv_limit`. After apply, expect a new revision, the saved array with `curtailable: false`, and global curtailment still disabled. `limitEntityId` is used in the proposed automation. The signed grid sensor and EPEX Predictor zone are saved through their respective Settings forms.
+Review the diff, exact event name, and proposed automation before applying. Apply saves the array in the app with curtailment disabled for new arrays. The final settings read confirms what was saved. If Settings changed after preview, read the latest revision and preview again.
+
+## Finish setup in Settings
+
+Set the signed grid power sensor and EPEX Predictor bidding zone and check your export formula in Settings. Use the automation from preview as a starting point in Home Assistant. Adapt its target and release action to your inverter, then verify both limit and release on the inverter before enabling curtailment. Follow the PV curtailment setup checklist in the app to complete activation.
+
+## Verify the API on a test installation
+
+Use a disposable Home Assistant OS instance with a mock PV power sensor and a mock 0–100% number entity such as `number.mock_inverter_limit`. Keep curtailment disabled. In Home Assistant's event listener, subscribe to `*` before running the calls above with your mock entity IDs. Check for zero `elias_ems_pv_curtail_*_pv_limit` events and zero `call_service` events targeting the mock inverter. Verify that preview leaves Settings unchanged and that apply saves the array with `curtailable: false`.
 
 Use the returned array ID and the latest revision to test a partial update. After preview, save a distinct grid power entity in **Elias-ems PV Curtailment → Settings**, then apply the old request:
 
