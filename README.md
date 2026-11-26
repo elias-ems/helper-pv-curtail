@@ -47,6 +47,20 @@ The event also carries `slug`, `array_id`, `title`, `limit_w`, `rated_power_w`, 
 
 Battery and EV inputs are optional. Battery sensors use signed watts, positive while charging and negative while discharging. If PV and the battery share an inverter, verify how its PV limit affects charging.
 
+## Back up settings
+
+Open **Settings → Back up or restore settings** and download a JSON file before
+experimenting. It contains PV arrays, grid and battery sensors, prices and
+curtailment settings. Home Assistant credentials, automations and runtime
+history stay in their original locations.
+
+To restore, choose a file, select **Preview backup**, then review the changes
+before selecting **Apply backup**. Applying may release existing PV limits and
+start curtailment with the restored settings. Check that the entity IDs and
+inverter automations match the Home Assistant installation receiving the backup.
+Use a Home Assistant backup if you need to roll back the app version and its
+data together.
+
 ## Development
 
 Use the Node version in `.node-version` and run these commands from `addon/`.
