@@ -77,3 +77,7 @@ npm run start:ingress
 The integration suite runs the production web server behind a mock Home Assistant ingress proxy. The manual stack prints the ingress URL and stores its settings in `addon/data/`.
 
 Append `/playground` to the app’s URL to preview the components with sample data.
+
+## HA-MCP onboarding
+
+The [PV onboarding runbook](docs/ha-mcp-pv-onboarding.md) covers preview, apply, and stale-revision checks through Home Assistant ingress.
