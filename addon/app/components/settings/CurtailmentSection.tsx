@@ -14,6 +14,8 @@ import {
   NO_GRID_ERROR,
   NO_PRICES_ERROR,
 } from "../../lib/curtailment";
+import type { PvEntity } from "../../lib/pv-entities";
+import { PV_REVIEW_ERROR, pvReviewKey } from "../../lib/pv-onboarding";
 import type { SettingsActionData } from "../../lib/settings-form";
 import { failureFor, succeededFor } from "../../lib/settings-form";
 import EntityAutocomplete from "../EntityAutocomplete";
@@ -25,6 +27,7 @@ import {
   inputStyle,
   labelStyle,
 } from "../form";
+import PvCurtailmentChecklist from "./PvCurtailmentChecklist";
 import Section from "./Section";
 import TrackedSettingsForm from "./TrackedSettingsForm";
 
@@ -32,10 +35,12 @@ export default function CurtailmentSection({
   config,
   ready,
   actionData,
+  pvEntities,
 }: {
   config: CurtailmentConfig;
   ready: { grid: boolean; arrays: boolean; prices: boolean };
   actionData?: SettingsActionData;
+  pvEntities?: PvEntity[];
 }) {
   const navigation = useNavigation();
   const errors = failureFor(actionData, "curtailment")?.errors ?? {};
@@ -65,6 +70,11 @@ export default function CurtailmentSection({
     strategy === "graded-export" ? "exportPercent" : "ceilingPercent";
   const hidden = shown === "exportPercent" ? "ceilingPercent" : "exportPercent";
 
+  const reviewKey = pvEntities ? pvReviewKey(pvEntities) : null;
+  const [reviewedKey, setReviewedKey] = useState<string | null>(null);
+  const [enableRequested, setEnableRequested] = useState(false);
+  const reviewed = reviewKey !== null && reviewKey === reviewedKey;
+
   // Left interactive while curtailment is already on, so that an array that
   // stopped being curtailable afterwards leaves a box that can still be
   // unticked rather than a switch stuck in the on position.
@@ -72,6 +82,7 @@ export default function CurtailmentSection({
     !ready.grid && NO_GRID_ERROR,
     !ready.arrays && NO_CURTAILABLE_ARRAY_ERROR,
     !ready.prices && NO_PRICES_ERROR,
+    pvEntities && !config.enabled && !reviewed && PV_REVIEW_ERROR,
   ].filter(Boolean);
   const canEnable = requirements.length === 0 || config.enabled;
 
@@ -80,6 +91,17 @@ export default function CurtailmentSection({
       title="PV curtailment"
       description="When enabled, the arrays are held back to roughly what the house and its battery can absorb while a kWh put on the grid earns less than the threshold below. Everything else generates freely."
     >
+      {pvEntities && (
+        <PvCurtailmentChecklist
+          arrays={pvEntities}
+          enabled={config.enabled}
+          reviewed={reviewed}
+          onReview={(confirmed) => {
+            setReviewedKey(confirmed ? reviewKey : null);
+            setEnableRequested(false);
+          }}
+        />
+      )}
       <TrackedSettingsForm
         method="post"
         style={{ ...formStyle, marginTop: "1rem" }}
@@ -111,13 +133,18 @@ export default function CurtailmentSection({
         }}
       >
         <input type="hidden" name="intent" value="curtailment-save" />
+        {reviewed && enableRequested && canEnable && (
+          <input type="hidden" name="pvReview" value={reviewKey} />
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <input
+            key={`${String(canEnable)}:${reviewKey ?? ""}`}
             id={enabledId}
             type="checkbox"
             name="enabled"
             defaultChecked={config.enabled}
+            onChange={(event) => setEnableRequested(event.target.checked)}
             disabled={!canEnable}
             aria-invalid={Boolean(errors.enabled) || undefined}
             aria-describedby={requirements.length ? requirementsId : undefined}
