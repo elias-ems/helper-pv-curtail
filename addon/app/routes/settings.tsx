@@ -45,6 +45,7 @@ import {
   removePvEntity,
   updatePvEntity,
 } from "../lib/pv-entities.server";
+import { PV_REVIEW_ERROR, pvReviewKey } from "../lib/pv-onboarding";
 import type { SettingsActionData } from "../lib/settings-form";
 import { titleSlugClashes } from "../lib/slug";
 import type { Route } from "./+types/settings";
@@ -215,10 +216,11 @@ async function settingsAction({ request }: Route.ActionArgs) {
       // be cleared, after curtailment was switched on — and nothing stops a
       // form being posted directly.
       if (parsed.config.enabled) {
-        const [pvEntities, prices, grid] = await Promise.all([
+        const [pvEntities, prices, grid, previous] = await Promise.all([
           listPvEntities(),
           readPriceConfig(),
           readGrid(),
+          readCurtailmentConfig(),
         ]);
         if (!isGridConfigured(grid)) {
           return failed({
@@ -239,6 +241,22 @@ async function settingsAction({ request }: Route.ActionArgs) {
             section: "curtailment",
             recordId: null,
             errors: { enabled: NO_PRICES_ERROR },
+          });
+        }
+        if (
+          !previous.enabled &&
+          (formData.get("pvReview") !== pvReviewKey(pvEntities) ||
+            pvEntities.some(
+              (array) =>
+                isCurtailable(array) &&
+                array.controlMode === "stepped" &&
+                array.stepLimitPercent === null,
+            ))
+        ) {
+          return failed({
+            section: "curtailment",
+            recordId: null,
+            errors: { enabled: PV_REVIEW_ERROR },
           });
         }
       }
@@ -318,7 +336,9 @@ export default function Settings({
           />
         </div>
         <CurtailmentSection
+          key={String(curtailment.enabled)}
           config={curtailment}
+          pvEntities={pvEntities}
           ready={{
             grid: isGridConfigured(grid),
             arrays: pvEntities.some(isCurtailable),

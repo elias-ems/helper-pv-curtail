@@ -198,9 +198,42 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
         { intent: "grid-save", powerEntityId: "sensor.grid_power" },
         true,
       );
-      await save({ ...curtailment, enabled: "on" });
-
+      expect(
+        await save({ ...curtailment, enabled: "on" }, false, 400),
+      ).toContain("Complete the setup review");
+      expect(stack.ha.events).toHaveLength(0);
+      const statusBeforeActivation = (await (
+        await fetch(new URL("api/home-status", stack.baseUrl))
+      ).json()) as HomeStatus;
+      const arrayId = statusBeforeActivation.devices
+        .find((device) => device.kind === "PV array")
+        ?.key.slice(3);
+      expect(arrayId).toBeDefined();
       const eventType = "elias_ems_pv_curtail_south_roof_pv_limit";
+      const reviewedArray = [
+        arrayId,
+        eventType,
+        "sensor.inverter_power",
+        5000,
+        "modulating",
+        null,
+      ];
+      const pvReview = JSON.stringify([reviewedArray]);
+      const staleReview = JSON.stringify([
+        reviewedArray.map((value) => (value === 5000 ? 4000 : value)),
+      ]);
+      expect(
+        await save(
+          { ...curtailment, enabled: "on", pvReview: staleReview },
+          false,
+          400,
+        ),
+      ).toContain("Complete the setup review");
+      expect(persisted).toContain("PV curtailment setup checklist");
+      expect(persisted).toContain("trigger.event.data.released");
+      expect(persisted).toContain("trigger.event.data.limit_percent");
+      expect(persisted).toContain("The inverter readback confirms");
+      await save({ ...curtailment, enabled: "on", pvReview });
       await expect
         .poll(() => stack.ha.events, { timeout: 10_000 })
         .toContainEqual(
@@ -276,7 +309,7 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
         }),
       );
       stack.ha.events.length = 0;
-      await save({ ...curtailment, enabled: "on" });
+      await save({ ...curtailment, enabled: "on", pvReview });
       await expect.poll(() => stack.ha.events.length).toBe(1);
     } finally {
       await stack.close();

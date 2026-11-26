@@ -143,6 +143,7 @@ export default function PricesSection({
 
   return (
     <Section
+      id="price-settings"
       title="Prices"
       description="Choose a price source and the tariff formulas for grid import and export."
     >
