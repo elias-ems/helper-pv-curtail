@@ -1,8 +1,8 @@
 name: Elias-ems PV Curtailment
-description: Adjust PV generation limits when grid export prices are low.
+description: Adjust PV generation limits when grid export prices are low. The linked guide covers setup with an HA-MCP agent.
 version: "0.1.16"
 slug: helper-pv-curtail
-url: https://github.com/elias-ems/helper-pv-curtail
+url: https://github.com/elias-ems/helper-pv-curtail/blob/main/docs/ha-mcp-pv-onboarding.md
 arch:
   - aarch64
   - amd64

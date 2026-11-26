@@ -2,6 +2,8 @@
 
 **Prerequisite** — [Community HA-MCP](https://homeassistant-ai.github.io/ha-mcp/tools/) is already connected to the Home Assistant installation running Elias-ems PV Curtailment.
 
+If the app is new to your Home Assistant installation, use the [installation steps](../README.md#install) to add the repository, install the app, and start it.
+
 In the app, keep **Enable PV curtailment** off until you've tested the inverter automation.
 
 ## Supported commands

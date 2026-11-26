@@ -6,6 +6,8 @@ Elias-ems PV Curtailment uses the grid meter, PV power readings, and your export
 
 ## Install
 
+Using Claude or Codex with HA-MCP? Follow the [agent onboarding runbook](docs/ha-mcp-pv-onboarding.md).
+
 1. In Home Assistant, add `https://github.com/elias-ems/helper-pv-curtail` to the app store repositories.
 2. Install **Elias-ems PV Curtailment**, start it, and open its web UI. Home Assistant builds the image locally on amd64 or aarch64.
 3. In **Settings**, choose a signed grid power sensor in watts (positive for import), then add each PV array's current power sensor. For arrays you want to limit, enable curtailment on the array and enter its inverter's rated AC output in watts.
@@ -77,7 +79,3 @@ npm run start:ingress
 The integration suite runs the production web server behind a mock Home Assistant ingress proxy. The manual stack prints the ingress URL and stores its settings in `addon/data/`.
 
 Append `/playground` to the app’s URL to preview the components with sample data.
-
-## HA-MCP onboarding
-
-The [PV onboarding runbook](docs/ha-mcp-pv-onboarding.md) covers preview, apply, and stale-revision checks through Home Assistant ingress.
