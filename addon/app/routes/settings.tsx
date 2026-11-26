@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { data } from "react-router";
+import { data, Link } from "react-router";
 import { pageTitleStyle } from "../components/form";
 import BatteriesSection from "../components/settings/BatteriesSection";
 import CurtailmentSection from "../components/settings/CurtailmentSection";
@@ -305,6 +305,9 @@ export default function Settings({
   return (
     <main ref={page} className="page settings-page">
       <h1 style={pageTitleStyle}>Settings</h1>
+      <p>
+        <Link to="/settings/backup">Back up or restore settings</Link>
+      </p>
 
       <div className="settings-layout" style={{ marginTop: "1.5rem" }}>
         <div className="settings-stack">

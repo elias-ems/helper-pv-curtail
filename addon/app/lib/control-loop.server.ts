@@ -441,8 +441,8 @@ export async function releasePvArrays(): Promise<void> {
  * Nothing decides for it any more, so nothing would ever supersede it, and the
  * add-on would go on quietly costing its owner a slice of every sunny day.
  */
-export async function releasePvArray(array: PvEntity): Promise<void> {
-  if (!isCurtailable(array)) return;
+export async function releasePvArray(array: PvEntity): Promise<boolean> {
+  if (!isCurtailable(array)) return true;
 
   const [publish] = await publishPvLimits([
     {
@@ -468,6 +468,7 @@ export async function releasePvArray(array: PvEntity): Promise<void> {
       ? `${array.title} is no longer curtailable — released it to 100%.`
       : `${array.title} is no longer curtailable, but the release did not go out (${publish.detail ?? publish.status}) — check it is not still being held back.`,
   );
+  return publish.status === "published";
 }
 
 /**
@@ -599,21 +600,31 @@ let shutdownArmed = false;
 let shuttingDown = false;
 let settingsQueue = Promise.resolve();
 
-export function withCurtailmentPaused<T>(change: () => Promise<T>): Promise<T> {
-  const result = settingsQueue.then(async () => {
-    stopControlLoop();
-    await pendingControlTick();
-    try {
-      return await change();
-    } finally {
-      if (!shuttingDown) await syncControlLoop();
-    }
-  });
+export function withSettingsLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = settingsQueue.then(work);
   settingsQueue = result.then(
     () => undefined,
     () => undefined,
   );
   return result;
+}
+
+export function withCurtailmentPaused<T>(change: () => Promise<T>): Promise<T> {
+  return withSettingsLock(() => pauseCurtailment(change));
+}
+
+// Call inside the settings lock when a change needs preflight before pausing.
+export async function pauseCurtailment<T>(
+  change: () => Promise<T>,
+  { releaseOnDisable = true } = {},
+): Promise<T> {
+  stopControlLoop();
+  await pendingControlTick();
+  try {
+    return await change();
+  } finally {
+    if (!shuttingDown) await syncControlLoop({ releaseOnDisable });
+  }
 }
 
 function armShutdownRelease(): void {
@@ -635,9 +646,9 @@ function armShutdownRelease(): void {
   }
 }
 
-export async function syncControlLoop(): Promise<
-  ReturnType<typeof curtailmentLoopStatus>
-> {
+export async function syncControlLoop({
+  releaseOnDisable = true,
+} = {}): Promise<ReturnType<typeof curtailmentLoopStatus>> {
   const curtailment = await readCurtailmentConfig();
   const wasEnabled = state.curtailment?.enabled;
   state.curtailment = curtailment;
@@ -647,7 +658,7 @@ export async function syncControlLoop(): Promise<
     await pendingControlTick();
     if (wasEnabled) {
       logLoop("info", "PV curtailment disabled.");
-      await releasePvArrays();
+      if (releaseOnDisable) await releasePvArrays();
     }
     return curtailmentLoopStatus();
   }
