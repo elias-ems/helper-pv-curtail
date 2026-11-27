@@ -398,6 +398,11 @@ select {
   border-top: 1px solid var(--color-border);
 }
 
+/* Settings links focus the card for navigation and flash its body. */
+.settings-page section[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 .settings-page :is(input, select, button, summary, [data-settings-error]) {
   scroll-margin-block-start: 5rem;
   scroll-margin-block-end: 4.5rem;
