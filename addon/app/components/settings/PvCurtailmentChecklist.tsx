@@ -23,7 +23,7 @@ export default function PvCurtailmentChecklist({
   reviewed: boolean;
   onReview: (reviewed: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!enabled);
   const reviewId = useId();
   const options = {
     enabled: open,
@@ -53,7 +53,10 @@ export default function PvCurtailmentChecklist({
   const curtailable = arrays.filter(isCurtailable);
 
   return (
-    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary style={labelStyle}>PV curtailment setup checklist</summary>
       <ol style={{ paddingInlineStart: "1.4rem" }}>
         <li>

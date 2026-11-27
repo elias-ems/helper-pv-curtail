@@ -65,6 +65,16 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       const home = await fetch(stack.baseUrl);
       expect(home.status).toBe(200);
       const html = await home.text();
+      expect(html).toContain("Set up PV curtailment");
+      expect(html).toContain("Choose a grid power sensor.");
+      expect(html).toContain("Select an EPEX Predictor bidding zone.");
+      expect(html).toContain("Configure a PV array for curtailment.");
+      const setupLink = html.match(
+        /<a [^>]+>Continue setup in Settings<\/a>/,
+      )?.[0];
+      expect(setupLink).toContain(
+        `href="${new URL("settings", stack.baseUrl).pathname}"`,
+      );
       expect(html).toContain("Curtailment is disabled.");
       expect(html.indexOf("Energy prices")).toBeLessThan(
         html.indexOf("Curtailment is disabled."),
@@ -229,11 +239,23 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
           400,
         ),
       ).toContain("Complete the setup review");
-      expect(persisted).toContain("PV curtailment setup checklist");
+      expect(persisted).toMatch(
+        /<details open=""><summary[^>]*>PV curtailment setup checklist<\/summary>/,
+      );
+      const readyToEnable = await (await fetch(stack.baseUrl)).text();
+      expect(readyToEnable).toContain("Set up PV curtailment");
+      expect(readyToEnable).toContain(
+        "Verify the inverter automation, then enable curtailment.",
+      );
+      expect(readyToEnable).not.toContain(
+        "Configure a PV array for curtailment.",
+      );
       expect(persisted).toContain("trigger.event.data.released");
       expect(persisted).toContain("trigger.event.data.limit_percent");
       expect(persisted).toContain("The inverter readback confirms");
       await save({ ...curtailment, enabled: "on", pvReview });
+      const setupComplete = await (await fetch(stack.baseUrl)).text();
+      expect(setupComplete).not.toContain("Set up PV curtailment");
       await expect
         .poll(() => stack.ha.events, { timeout: 10_000 })
         .toContainEqual(
