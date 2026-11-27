@@ -31,7 +31,9 @@ export default function TitledCard({
         </h2>
         {actions}
       </div>
-      <div style={cardStyle}>{children}</div>
+      <div data-card-body style={cardStyle}>
+        {children}
+      </div>
     </section>
   );
 }

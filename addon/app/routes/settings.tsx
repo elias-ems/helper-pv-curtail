@@ -43,6 +43,7 @@ import {
 import { pvActivationError } from "../lib/pv-onboarding";
 import type { SettingsActionData } from "../lib/settings-form";
 import { titleSlugClashes } from "../lib/slug";
+import { useCardFlash } from "../lib/use-card-flash";
 import type { Route } from "./+types/settings";
 
 export async function loader() {
@@ -291,21 +292,15 @@ export default function Settings({
   }, [actionData]);
 
   const { hash } = useLocation();
+  const flashCard = useCardFlash();
   useEffect(() => {
     const target = document.getElementById(hash.slice(1));
     if (!target || !page.current?.contains(target)) return;
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: "center" });
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const highlight = target.animate(
-      [
-        { boxShadow: "0 0 0 3px var(--color-focus)" },
-        { boxShadow: "0 0 0 3px transparent" },
-      ],
-      { duration: 1400, easing: "ease-out" },
-    );
-    return () => highlight.cancel();
-  }, [hash]);
+    const card = target.querySelector<HTMLElement>("[data-card-body]");
+    if (card) return flashCard(card);
+  }, [flashCard, hash]);
 
   return (
     <main ref={page} className="page settings-page">
