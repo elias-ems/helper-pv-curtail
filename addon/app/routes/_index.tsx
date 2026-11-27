@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { data, Form, useNavigation } from "react-router";
 import ForecastChart from "../components/ForecastChart";
-import { errorStyle, pageTitleStyle } from "../components/form";
+import {
+  errorStyle,
+  linkButtonStyle,
+  pageTitleStyle,
+} from "../components/form";
 import HomeDeviceStatus from "../components/HomeDeviceStatus";
 import PvCurtailmentChecklist from "../components/settings/PvCurtailmentChecklist";
 import TitledCard from "../components/TitledCard";
@@ -19,6 +23,8 @@ import {
 } from "../lib/pv-onboarding";
 import { readSettings } from "../lib/settings-backup.server";
 import type { Route } from "./+types/_index";
+
+const setupCollapsedKey = "elias-ems-pv-curtailment.setup-collapsed";
 
 export async function loader() {
   const [forecast, status, settings] = await Promise.all([
@@ -52,6 +58,26 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   const [reviewedKey, setReviewedKey] = useState<string | null>(null);
+  const [setupCollapsed, setSetupCollapsed] = useState(false);
+  const setupBodyId = useId();
+  useEffect(() => {
+    try {
+      setSetupCollapsed(localStorage.getItem(setupCollapsedKey) === "true");
+    } catch {
+      // Storage may be blocked in an embedded panel.
+    }
+  }, []);
+
+  function toggleSetup() {
+    const collapsed = !setupCollapsed;
+    setSetupCollapsed(collapsed);
+    try {
+      localStorage.setItem(setupCollapsedKey, String(collapsed));
+    } catch {
+      // The toggle still works on this page.
+    }
+  }
+
   const navigation = useNavigation();
   const { onboarding } = loaderData;
   const reviewKey = onboarding ? pvReviewKey(onboarding.arrays) : null;
@@ -69,7 +95,22 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
     <main className="page" style={{ display: "grid", gap: "1rem" }}>
       <h1 style={pageTitleStyle}>Home</h1>
       {onboarding && (
-        <TitledCard title="Set up PV curtailment">
+        <TitledCard
+          title="Set up PV curtailment"
+          bodyId={setupBodyId}
+          collapsed={setupCollapsed}
+          actions={
+            <button
+              type="button"
+              aria-controls={setupBodyId}
+              aria-expanded={!setupCollapsed}
+              onClick={toggleSetup}
+              style={linkButtonStyle("var(--color-link)")}
+            >
+              {setupCollapsed ? "Expand setup" : "Collapse setup"}
+            </button>
+          }
+        >
           {onboarding.missing.length > 0 && (
             <ul style={{ paddingInlineStart: "1.4rem" }}>
               {onboarding.missing.map((message) => (

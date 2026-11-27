@@ -5,11 +5,15 @@ export default function TitledCard({
   id,
   title,
   actions,
+  bodyId,
+  collapsed,
   children,
 }: {
   id?: string;
   title: string;
   actions?: ReactNode;
+  bodyId?: string;
+  collapsed?: boolean;
   children: ReactNode;
 }) {
   const heading = useId();
@@ -31,7 +35,7 @@ export default function TitledCard({
         </h2>
         {actions}
       </div>
-      <div data-card-body style={cardStyle}>
+      <div id={bodyId} data-card-body hidden={collapsed} style={cardStyle}>
         {children}
       </div>
     </section>
