@@ -32,15 +32,13 @@ export async function loader() {
     readHomeStatus(),
     readSettings(),
   ]);
-  const missing = missingPvSetup(settings);
+  const ready = missingPvSetup(settings).length === 0;
   const { enabled } = settings.curtailment;
   return {
     forecast,
     status,
     onboarding:
-      enabled && !missing.length
-        ? null
-        : { arrays: settings.pvEntities, enabled, missing },
+      enabled && ready ? null : { arrays: settings.pvEntities, enabled, ready },
   };
 }
 
@@ -111,13 +109,6 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             </button>
           }
         >
-          {onboarding.missing.length > 0 && (
-            <ul style={{ paddingInlineStart: "1.4rem" }}>
-              {onboarding.missing.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          )}
           <PvCurtailmentChecklist
             arrays={onboarding.arrays}
             enabled={onboarding.enabled}
@@ -142,9 +133,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 type="submit"
                 className="primary-button"
                 disabled={
-                  !reviewed ||
-                  onboarding.missing.length > 0 ||
-                  navigation.state !== "idle"
+                  !reviewed || !onboarding.ready || navigation.state !== "idle"
                 }
               >
                 Enable PV curtailment

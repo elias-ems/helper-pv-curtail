@@ -67,6 +67,13 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       const html = await home.text();
       expect(html).toContain("Set up PV curtailment");
       expect(html).toContain("Check live readings");
+      expect(html).toContain("Choose a grid power sensor.");
+      expect(html).toContain(
+        "Select EPEX Predictor and a bidding zone in Settings.",
+      );
+      expect(html).not.toContain(
+        "Choose a grid power sensor before enabling PV curtailment.",
+      );
       expect(html).toContain("Set up Home Assistant automations");
       expect(html).toContain("No curtailable arrays configured.");
       expect(html).toContain("🟡");

@@ -74,7 +74,9 @@ export default function PvCurtailmentChecklist({
     )?.export ?? null;
   const gridDirection =
     gridW === null
-      ? "Unavailable"
+      ? status.data && !grid
+        ? "Choose a grid power sensor."
+        : "Unavailable"
       : gridW > 0
         ? "Importing"
         : gridW < 0
@@ -125,7 +127,9 @@ export default function PvCurtailmentChecklist({
           </li>
           <li>
             Verified export price:{" "}
-            {price === null ? "Unavailable" : formatMoney(price, "EUR/kWh")}
+            {price === null
+              ? (prices.data?.issue ?? "Unavailable")
+              : formatMoney(price, "EUR/kWh")}
             {" · "}
             <AppPageLink to="/settings" section="price-settings">
               Price settings
