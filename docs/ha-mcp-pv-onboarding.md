@@ -74,7 +74,7 @@ The event's `limit_percent` is the requested limit. `released: true` means the a
    ```
 
 3. Remove `initial_state: false` from the finished automation, save it, and confirm it's enabled. Home Assistant will then restore its enabled state after restart. [Home Assistant automation initial state](https://www.home-assistant.io/docs/automation/yaml/#automation-initial-state)
-4. In **Elias-ems PV Curtailment → Settings**, enable curtailment on the array and save it. Review the live readings and confirm the inverter checks in the **PV curtailment setup checklist**, then turn on **Enable PV curtailment** and save. When prices meet your strategy's conditions, check **Diagnostics** for the app's decision and event delivery, then confirm the corresponding Home Assistant trace and inverter limit.
+4. In **Elias-ems PV Curtailment → Settings**, enable curtailment on the array and save it. Return to **Home**, review the live readings and confirm the inverter checks in **Set up PV curtailment**, then select **Enable PV curtailment**. The card disappears when setup is complete. When prices meet your strategy's conditions, check **Diagnostics** for the app's decision and event delivery, then confirm the corresponding Home Assistant trace and inverter limit.
 
 ## Verify the API on a test installation
 

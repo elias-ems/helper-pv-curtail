@@ -17,12 +17,7 @@ import {
   releasePvArray,
   withCurtailmentPaused,
 } from "../lib/control-loop.server";
-import {
-  NO_CURTAILABLE_ARRAY_ERROR,
-  NO_GRID_ERROR,
-  NO_PRICES_ERROR,
-  parseCurtailmentConfig,
-} from "../lib/curtailment";
+import { parseCurtailmentConfig } from "../lib/curtailment";
 import {
   readCurtailmentConfig,
   saveCurtailmentConfig,
@@ -45,7 +40,7 @@ import {
   removePvEntity,
   updatePvEntity,
 } from "../lib/pv-entities.server";
-import { PV_REVIEW_ERROR, pvReviewKey } from "../lib/pv-onboarding";
+import { pvActivationError } from "../lib/pv-onboarding";
 import type { SettingsActionData } from "../lib/settings-form";
 import { titleSlugClashes } from "../lib/slug";
 import type { Route } from "./+types/settings";
@@ -222,41 +217,16 @@ async function settingsAction({ request }: Route.ActionArgs) {
           readGrid(),
           readCurtailmentConfig(),
         ]);
-        if (!isGridConfigured(grid)) {
+        const error = pvActivationError(
+          { pvEntities, prices, grid },
+          formData.get("pvReview"),
+          previous.enabled,
+        );
+        if (error) {
           return failed({
             section: "curtailment",
             recordId: null,
-            errors: { enabled: NO_GRID_ERROR },
-          });
-        }
-        if (!pvEntities.some(isCurtailable)) {
-          return failed({
-            section: "curtailment",
-            recordId: null,
-            errors: { enabled: NO_CURTAILABLE_ARRAY_ERROR },
-          });
-        }
-        if (!isPriceConfigured(prices)) {
-          return failed({
-            section: "curtailment",
-            recordId: null,
-            errors: { enabled: NO_PRICES_ERROR },
-          });
-        }
-        if (
-          !previous.enabled &&
-          (formData.get("pvReview") !== pvReviewKey(pvEntities) ||
-            pvEntities.some(
-              (array) =>
-                isCurtailable(array) &&
-                array.controlMode === "stepped" &&
-                array.stepLimitPercent === null,
-            ))
-        ) {
-          return failed({
-            section: "curtailment",
-            recordId: null,
-            errors: { enabled: PV_REVIEW_ERROR },
+            errors: { enabled: error },
           });
         }
       }

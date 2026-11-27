@@ -66,11 +66,11 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(home.status).toBe(200);
       const html = await home.text();
       expect(html).toContain("Set up PV curtailment");
-      expect(html).toContain("Choose a grid power sensor.");
-      expect(html).toContain("Select an EPEX Predictor bidding zone.");
-      expect(html).toContain("Configure a PV array for curtailment.");
+      expect(html).toContain("Check live readings");
+      expect(html).toContain("Set up Home Assistant automations");
+      expect(html).toContain("No curtailable arrays configured.");
       const setupLink = html.match(
-        /<a [^>]+>Continue setup in Settings<\/a>/,
+        /<a [^>]+>Edit setup inputs in Settings<\/a>/,
       )?.[0];
       expect(setupLink).toContain(
         `href="${new URL("settings", stack.baseUrl).pathname}"`,
@@ -239,21 +239,24 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
           400,
         ),
       ).toContain("Complete the setup review");
-      expect(persisted).toMatch(
-        /<details open=""><summary[^>]*>PV curtailment setup checklist<\/summary>/,
-      );
+      expect(persisted).toContain("PV curtailment setup checklist");
       const readyToEnable = await (await fetch(stack.baseUrl)).text();
       expect(readyToEnable).toContain("Set up PV curtailment");
-      expect(readyToEnable).toContain(
-        "Verify the inverter automation, then enable curtailment.",
-      );
-      expect(readyToEnable).not.toContain(
-        "Configure a PV array for curtailment.",
-      );
+      expect(readyToEnable).toContain("South roof automation YAML");
+      expect(readyToEnable).toContain(eventType);
+      expect(readyToEnable).not.toContain("No curtailable arrays configured.");
+      const activateFromHome = (review: string) =>
+        fetch(new URL("?index", stack.baseUrl), {
+          method: "POST",
+          headers: { Origin: stack.origin },
+          body: new URLSearchParams({ pvReview: review }),
+        });
+      expect((await activateFromHome(staleReview)).status).toBe(400);
       expect(persisted).toContain("trigger.event.data.released");
       expect(persisted).toContain("trigger.event.data.limit_percent");
       expect(persisted).toContain("The inverter readback confirms");
-      await save({ ...curtailment, enabled: "on", pvReview });
+      await save(curtailment);
+      expect((await activateFromHome(pvReview)).status).toBe(200);
       const setupComplete = await (await fetch(stack.baseUrl)).text();
       expect(setupComplete).not.toContain("Set up PV curtailment");
       await expect

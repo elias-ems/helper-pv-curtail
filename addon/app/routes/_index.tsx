@@ -1,16 +1,23 @@
+import { useState } from "react";
+import { data, Form, useNavigation } from "react-router";
 import AppPageLink from "../components/AppPageLink";
 import ForecastChart from "../components/ForecastChart";
-import { pageTitleStyle } from "../components/form";
+import { errorStyle, pageTitleStyle } from "../components/form";
 import HomeDeviceStatus from "../components/HomeDeviceStatus";
+import PvCurtailmentChecklist from "../components/settings/PvCurtailmentChecklist";
 import TitledCard from "../components/TitledCard";
-import { isGridConfigured } from "../lib/grid";
+import { withCurtailmentPaused } from "../lib/control-loop.server";
+import { saveCurtailmentConfig } from "../lib/curtailment-config.server";
 import type { HomeStatus } from "../lib/home-status";
 import { readHomeStatus } from "../lib/home-status.server";
 import { usePolledJson } from "../lib/json-fetch";
 import type { HomePriceForecast } from "../lib/price-forecast";
 import { readHomePriceForecast } from "../lib/price-source.server";
-import { isPriceConfigured } from "../lib/prices";
-import { isCurtailable } from "../lib/pv-entities";
+import {
+  missingPvSetup,
+  pvActivationError,
+  pvReviewKey,
+} from "../lib/pv-onboarding";
 import { readSettings } from "../lib/settings-backup.server";
 import type { Route } from "./+types/_index";
 
@@ -20,29 +27,36 @@ export async function loader() {
     readHomeStatus(),
     readSettings(),
   ]);
-  const arrays = settings.pvEntities.filter(isCurtailable);
-  const setupSteps = [
-    ...(!isGridConfigured(settings.grid)
-      ? ["Choose a grid power sensor."]
-      : []),
-    ...(!isPriceConfigured(settings.prices)
-      ? ["Select an EPEX Predictor bidding zone."]
-      : []),
-    ...(arrays.length === 0 ? ["Configure a PV array for curtailment."] : []),
-    ...(arrays.some(
-      (array) =>
-        array.controlMode === "stepped" && array.stepLimitPercent === null,
-    )
-      ? ["Set a fixed limit for each stepped inverter."]
-      : []),
-    ...(!settings.curtailment.enabled
-      ? ["Verify the inverter automation, then enable curtailment."]
-      : []),
-  ];
-  return { forecast, status, setupSteps };
+  const missing = missingPvSetup(settings);
+  const { enabled } = settings.curtailment;
+  return {
+    forecast,
+    status,
+    onboarding:
+      enabled && !missing.length
+        ? null
+        : { arrays: settings.pvEntities, enabled, missing },
+  };
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
+export async function action({ request }: Route.ActionArgs) {
+  const form = await request.formData();
+  return withCurtailmentPaused(async () => {
+    const settings = await readSettings();
+    if (settings.curtailment.enabled) return { error: null };
+    const error = pvActivationError(settings, form.get("pvReview"), false);
+    if (error) return data({ error }, { status: 400 });
+    await saveCurtailmentConfig({ ...settings.curtailment, enabled: true });
+    return { error: null };
+  });
+}
+
+export default function Home({ loaderData, actionData }: Route.ComponentProps) {
+  const [reviewedKey, setReviewedKey] = useState<string | null>(null);
+  const navigation = useNavigation();
+  const { onboarding } = loaderData;
+  const reviewKey = onboarding ? pvReviewKey(onboarding.arrays) : null;
+  const reviewed = reviewKey !== null && reviewKey === reviewedKey;
   const forecast = usePolledJson<HomePriceForecast>("/api/price-forecast", {
     intervalMs: 60_000,
     leading: false,
@@ -55,14 +69,56 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <main className="page" style={{ display: "grid", gap: "1rem" }}>
       <h1 style={pageTitleStyle}>Home</h1>
-      {loaderData.setupSteps.length > 0 && (
+      {onboarding && (
         <TitledCard title="Set up PV curtailment">
-          <ul style={{ marginTop: 0, paddingInlineStart: "1.4rem" }}>
-            {loaderData.setupSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ul>
-          <AppPageLink to="/settings">Continue setup in Settings</AppPageLink>
+          <AppPageLink to="/settings">
+            Edit setup inputs in Settings
+          </AppPageLink>
+          {onboarding.missing.length > 0 && (
+            <ul style={{ paddingInlineStart: "1.4rem" }}>
+              {onboarding.missing.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
+          <PvCurtailmentChecklist
+            arrays={onboarding.arrays}
+            enabled={onboarding.enabled}
+            reviewed={reviewed}
+            onReview={(confirmed) =>
+              setReviewedKey(confirmed ? reviewKey : null)
+            }
+            homeReadings={{
+              status: status.data ?? loaderData.status,
+              prices: forecast.data ?? loaderData.forecast,
+              failing: status.failing || forecast.failing,
+            }}
+          />
+          {!onboarding.enabled && (
+            <Form method="post">
+              <input
+                type="hidden"
+                name="pvReview"
+                value={reviewed ? reviewKey : ""}
+              />
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={
+                  !reviewed ||
+                  onboarding.missing.length > 0 ||
+                  navigation.state !== "idle"
+                }
+              >
+                Enable PV curtailment
+              </button>
+              {actionData?.error && (
+                <p role="alert" style={errorStyle}>
+                  {actionData.error}
+                </p>
+              )}
+            </Form>
+          )}
         </TitledCard>
       )}
       <ForecastChart
