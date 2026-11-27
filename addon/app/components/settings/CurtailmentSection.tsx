@@ -88,6 +88,7 @@ export default function CurtailmentSection({
 
   return (
     <Section
+      id="curtailment-settings"
       title="PV curtailment"
       description="When enabled, the arrays are held back to roughly what the house and its battery can absorb while a kWh put on the grid earns less than the threshold below. Everything else generates freely."
     >

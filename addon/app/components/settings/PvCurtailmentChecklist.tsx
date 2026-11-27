@@ -10,7 +10,25 @@ import {
   pvSlug,
 } from "../../lib/pv-entities";
 import { pvAutomationYaml } from "../../lib/pv-onboarding";
+import AppPageLink from "../AppPageLink";
 import { hintStyle, inputStyle, labelStyle } from "../form";
+
+function StepHeading({
+  title,
+  complete,
+  pending,
+}: {
+  title: string;
+  complete: boolean;
+  pending: string;
+}) {
+  return (
+    <h3>
+      <span aria-hidden="true">{complete ? "✅" : "🟡"}</span> {title}{" "}
+      <small style={hintStyle}> · {complete ? "Complete" : pending}</small>
+    </h3>
+  );
+}
 
 export default function PvCurtailmentChecklist({
   arrays,
@@ -63,11 +81,34 @@ export default function PvCurtailmentChecklist({
           ? "Exporting"
           : "Balanced";
   const curtailable = arrays.filter(isCurtailable);
+  const invertersReady =
+    curtailable.length > 0 &&
+    !curtailable.some(
+      (array) =>
+        array.controlMode === "stepped" && array.stepLimitPercent === null,
+    );
+  const readingsReady =
+    gridW !== null &&
+    price !== null &&
+    !status.failing &&
+    !prices.failing &&
+    !status.data?.connectionError &&
+    curtailable.length > 0 &&
+    curtailable.every((array) =>
+      status.data?.devices.some(
+        (device) =>
+          device.key === `pv-${array.id}` && typeof device.reading === "number",
+      ),
+    );
 
   const checklist = (
     <ol style={{ paddingInlineStart: "1.4rem" }}>
       <li>
-        <h3>Check live readings</h3>
+        <StepHeading
+          title="Check live readings"
+          complete={readingsReady}
+          pending="Readings needed"
+        />
         <p style={hintStyle} role="status">
           {status.failing || prices.failing || status.data?.connectionError
             ? "Live readings are not updating."
@@ -77,22 +118,18 @@ export default function PvCurtailmentChecklist({
           <li>
             Grid: {gridDirection}
             {gridW !== null && ` (${formatWatts(gridW)})`}
-            {!homeReadings && (
-              <>
-                {" · "}
-                <a href="#grid-settings">Grid settings</a>
-              </>
-            )}
+            {" · "}
+            <AppPageLink to="/settings" section="grid-settings">
+              Grid settings
+            </AppPageLink>
           </li>
           <li>
             Verified export price:{" "}
             {price === null ? "Unavailable" : formatMoney(price, "EUR/kWh")}
-            {!homeReadings && (
-              <>
-                {" · "}
-                <a href="#price-settings">Price settings</a>
-              </>
-            )}
+            {" · "}
+            <AppPageLink to="/settings" section="price-settings">
+              Price settings
+            </AppPageLink>
           </li>
           {arrays.map((array) => {
             const power = status.data?.devices.find(
@@ -115,14 +152,16 @@ export default function PvCurtailmentChecklist({
         </p>
       </li>
       <li>
-        <h3>Confirm inverter settings</h3>
+        <StepHeading
+          title="Confirm inverter settings"
+          complete={invertersReady}
+          pending="Settings needed"
+        />
         <p style={hintStyle}>
           In{" "}
-          {homeReadings ? (
-            "Settings → PV entities"
-          ) : (
-            <a href="#pv-settings">PV entities</a>
-          )}
+          <AppPageLink to="/settings" section="pv-settings">
+            PV entity settings
+          </AppPageLink>
           , allow curtailment for each inverter you want to control. Use its
           nameplate AC output in watts. Choose “Follows the house” if the
           inverter supports frequent writes, or “One fixed step” with a
@@ -145,14 +184,24 @@ export default function PvCurtailmentChecklist({
         )}
       </li>
       <li>
-        <h3>Set up Home Assistant automations</h3>
+        <StepHeading
+          title="Set up Home Assistant automations"
+          complete={invertersReady && reviewed}
+          pending={
+            invertersReady ? "Awaiting verification" : "Inverter setup needed"
+          }
+        />
         <p style={hintStyle}>
           Paste each template into an automation’s YAML editor. Replace both
           placeholder targets. The example expects a percentage control that
           releases at 100%. If your inverter uses watts, use{" "}
           <code>limit_w</code> and adapt the release action. Match both actions
           to your inverter’s integration. Update the trigger after renaming an
-          array.
+          array.{" "}
+          <AppPageLink to="/settings" section="pv-settings">
+            Edit inverter settings
+          </AppPageLink>
+          .
         </p>
         {curtailable.map((array) => (
           <details key={array.id}>
@@ -181,7 +230,11 @@ export default function PvCurtailmentChecklist({
         ))}
       </li>
       <li>
-        <h3>Review and verify</h3>
+        <StepHeading
+          title="Review and verify"
+          complete={invertersReady && reviewed}
+          pending="Confirmation needed"
+        />
         <p style={hintStyle}>
           With PV curtailment off, use Home Assistant’s Developer Tools → Events
           to fire each array’s exact event. Send <code>released: false</code>{" "}
@@ -194,7 +247,11 @@ export default function PvCurtailmentChecklist({
           check the inverter’s own applied limit or mode after each event. A
           successful trace shows that Home Assistant ran the action. The
           inverter readback confirms the limit and release took effect. PV
-          generation alone can fall below a limit as sunlight changes.
+          generation alone can fall below a limit as sunlight changes.{" "}
+          <AppPageLink to="/settings" section="curtailment-settings">
+            Curtailment settings
+          </AppPageLink>
+          .
         </p>
         {!enabled && (
           <div
@@ -204,14 +261,7 @@ export default function PvCurtailmentChecklist({
               id={reviewId}
               type="checkbox"
               checked={reviewed}
-              disabled={
-                curtailable.length === 0 ||
-                curtailable.some(
-                  (array) =>
-                    array.controlMode === "stepped" &&
-                    array.stepLimitPercent === null,
-                )
-              }
+              disabled={!invertersReady}
               onChange={(event) => onReview(event.target.checked)}
             />
             <label htmlFor={reviewId} style={labelStyle}>

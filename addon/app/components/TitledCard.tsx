@@ -14,7 +14,7 @@ export default function TitledCard({
 }) {
   const heading = useId();
   return (
-    <section id={id} aria-labelledby={heading}>
+    <section id={id} tabIndex={id ? -1 : undefined} aria-labelledby={heading}>
       <div
         style={{
           display: "flex",

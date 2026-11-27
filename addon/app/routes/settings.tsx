@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { data, Link } from "react-router";
+import { data, Link, useLocation } from "react-router";
 import { pageTitleStyle } from "../components/form";
 import BatteriesSection from "../components/settings/BatteriesSection";
 import CurtailmentSection from "../components/settings/CurtailmentSection";
@@ -289,6 +289,23 @@ export default function Settings({
     }
     invalid.focus();
   }, [actionData]);
+
+  const { hash } = useLocation();
+  useEffect(() => {
+    const target = document.getElementById(hash.slice(1));
+    if (!target || !page.current?.contains(target)) return;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "center" });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const highlight = target.animate(
+      [
+        { boxShadow: "0 0 0 3px var(--color-focus)" },
+        { boxShadow: "0 0 0 3px transparent" },
+      ],
+      { duration: 1400, easing: "ease-out" },
+    );
+    return () => highlight.cancel();
+  }, [hash]);
 
   return (
     <main ref={page} className="page settings-page">

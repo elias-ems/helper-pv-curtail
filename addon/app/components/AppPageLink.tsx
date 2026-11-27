@@ -17,15 +17,27 @@ import {
 const appPages = ["/", "/diagnostics", "/settings", "/playground"] as const;
 type AppPage = (typeof appPages)[number];
 
-function isAppPage(path: unknown): path is AppPage {
-  return appPages.some((page) => page === path);
+const settingsSections = [
+  "grid-settings",
+  "price-settings",
+  "pv-settings",
+  "curtailment-settings",
+] as const;
+type SettingsSection = (typeof settingsSections)[number];
+
+function panelDestination(path: unknown) {
+  if (path === "") return "/";
+  if (appPages.some((page) => page === path)) return String(path);
+  // The panel forwards the path tail to the iframe without the hash.
+  const section = settingsSections.find((id) => path === `/settings/${id}`);
+  return section ? `/settings#${section}` : null;
 }
 
 const PanelPrefix = createContext<string | null>(null);
 
 export function IngressNavigation({ children }: { children: ReactNode }) {
   const [panelPrefix, setPanelPrefix] = useState<string | null>(null);
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const navigate = useNavigate();
 
   const updateRoute = useEffectEvent((event: MessageEvent) => {
@@ -37,16 +49,16 @@ export function IngressNavigation({ children }: { children: ReactNode }) {
       return;
 
     const { prefix, path } = event.data.route ?? {};
+    const page = panelDestination(path);
     if (
       typeof prefix !== "string" ||
       !/^\/(?:[\w-]+\/)*[\w-]+$/.test(prefix) ||
-      (path !== "" && !isAppPage(path))
+      page === null
     )
       return;
 
     setPanelPrefix(prefix);
-    const page = path || "/";
-    if (pathname !== page) {
+    if (`${pathname}${hash}` !== page) {
       // Home Assistant owns the history entry. Replacing the frame avoids two Back steps.
       void navigate(page, { replace: true });
     }
@@ -77,9 +89,17 @@ export function IngressNavigation({ children }: { children: ReactNode }) {
   );
 }
 
-type AppPageLinkProps = Omit<NavLinkProps, "to" | "onClick"> & { to: AppPage };
+type AppPageLinkProps = Omit<NavLinkProps, "to" | "onClick"> &
+  (
+    | { to: AppPage; section?: never }
+    | { to: "/settings"; section: SettingsSection }
+  );
 
-export default function AppPageLink({ to, ...props }: AppPageLinkProps) {
+export default function AppPageLink({
+  to,
+  section,
+  ...props
+}: AppPageLinkProps) {
   const panelPrefix = useContext(PanelPrefix);
 
   function openPanelPage(event: MouseEvent<HTMLAnchorElement>) {
@@ -96,15 +116,25 @@ export default function AppPageLink({ to, ...props }: AppPageLinkProps) {
       return;
 
     event.preventDefault();
-    if (event.currentTarget.getAttribute("aria-current") === "page") return;
+    if (!section && event.currentTarget.getAttribute("aria-current") === "page")
+      return;
     window.parent.postMessage(
       {
         type: "home-assistant/navigate",
-        path: to === "/" ? panelPrefix : `${panelPrefix}${to}`,
+        path:
+          to === "/"
+            ? panelPrefix
+            : `${panelPrefix}${to}${section ? `/${section}` : ""}`,
       },
       window.location.origin,
     );
   }
 
-  return <NavLink to={to} {...props} onClick={openPanelPage} />;
+  return (
+    <NavLink
+      to={section ? `${to}#${section}` : to}
+      {...props}
+      onClick={openPanelPage}
+    />
+  );
 }

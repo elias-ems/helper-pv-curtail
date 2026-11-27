@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { data, Form, useNavigation } from "react-router";
-import AppPageLink from "../components/AppPageLink";
 import ForecastChart from "../components/ForecastChart";
 import { errorStyle, pageTitleStyle } from "../components/form";
 import HomeDeviceStatus from "../components/HomeDeviceStatus";
@@ -71,9 +70,6 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       <h1 style={pageTitleStyle}>Home</h1>
       {onboarding && (
         <TitledCard title="Set up PV curtailment">
-          <AppPageLink to="/settings">
-            Edit setup inputs in Settings
-          </AppPageLink>
           {onboarding.missing.length > 0 && (
             <ul style={{ paddingInlineStart: "1.4rem" }}>
               {onboarding.missing.map((message) => (

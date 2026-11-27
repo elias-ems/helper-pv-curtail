@@ -69,11 +69,11 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       expect(html).toContain("Check live readings");
       expect(html).toContain("Set up Home Assistant automations");
       expect(html).toContain("No curtailable arrays configured.");
-      const setupLink = html.match(
-        /<a [^>]+>Edit setup inputs in Settings<\/a>/,
-      )?.[0];
+      expect(html).toContain("🟡");
+      expect(html).toContain("Settings needed");
+      const setupLink = html.match(/<a [^>]+>Grid settings<\/a>/)?.[0];
       expect(setupLink).toContain(
-        `href="${new URL("settings", stack.baseUrl).pathname}"`,
+        `href="${new URL("settings", stack.baseUrl).pathname}#grid-settings"`,
       );
       expect(html).toContain("Curtailment is disabled.");
       expect(html.indexOf("Energy prices")).toBeLessThan(
@@ -243,6 +243,8 @@ it("configures EPEX Predictor through ingress and releases on unverified prices,
       const readyToEnable = await (await fetch(stack.baseUrl)).text();
       expect(readyToEnable).toContain("Set up PV curtailment");
       expect(readyToEnable).toContain("South roof automation YAML");
+      expect(readyToEnable).toContain("✅");
+      expect(readyToEnable).toContain("Awaiting verification");
       expect(readyToEnable).toContain(eventType);
       expect(readyToEnable).not.toContain("No curtailable arrays configured.");
       const activateFromHome = (review: string) =>
